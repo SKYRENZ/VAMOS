@@ -1,0 +1,49 @@
+# Node.js and Electron
+node_modules/
+dist/
+build/
+*.log
+*.tmp
+.DS_Store
+
+# Environment Files
+.env
+.env.local
+.env.*.local
+
+# npm and Yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Electron Cache
+electron-out/
+cache/
+*.asar
+
+# React
+frontend/node_modules/
+frontend/.vite/
+frontend/dist/
+
+# Python
+backend/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/*.pyd
+backend/.venv/
+backend/venv/
+backend/.pytest_cache/
+
+# IDE and Editor Settings
+.vscode/
+.idea/
+*.swp
+
+# Coverage Reports
+coverage/
+*.cover
+.nyc_output/
+
+# OS-specific
+Thumbs.db

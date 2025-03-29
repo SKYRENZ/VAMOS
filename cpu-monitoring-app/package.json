@@ -1,0 +1,21 @@
+{
+  "name": "cpu-monitoring-app",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "concurrently \"npm run backend\" \"npm run frontend\" \"npm run electron\"",
+    "backend": "cd backend && python server.py",
+    "frontend": "cd frontend && npm run dev",
+    "electron": "electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "electron": "^35.1.2"
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
