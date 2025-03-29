@@ -1,22 +1,18 @@
- const { app, BrowserWindow } = require('electron');
-const path = require('path');
+const { app, BrowserWindow, Menu } = require('electron');
 
 let mainWindow;
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
     webPreferences: {
-      nodeIntegration: false,
-    },
+      nodeIntegration: true
+    }
   });
 
-  mainWindow.loadURL('http://localhost:5173');
-});
+  mainWindow.loadURL('http://localhost:5173'); // Or your React URL
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // Disable the default menu
+  Menu.setApplicationMenu(null);
 });
