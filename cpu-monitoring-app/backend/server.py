@@ -85,3 +85,15 @@ async def get_system_info():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=5000)
+
+@app.get("/cpu-temperature")
+async def get_cpu_temperature():
+    try:
+        # Get CPU temperature (may not be available on all systems)
+        temp = psutil.sensors_temperatures().get("coretemp", [{}])[0].get("current", 50)
+        return JSONResponse(content={"temperature": temp})
+    except Exception as e:
+        print("Error fetching CPU temperature:", e)
+        return JSONResponse(content={"error": "Failed to fetch temperature"}, status_code=500)
+
+
