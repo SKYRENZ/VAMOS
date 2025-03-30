@@ -1,0 +1,149 @@
+body {
+    background-color: #000;
+    color: #fff;
+    font-family: "Segoe UI", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .h-screen {
+    height: 100vh;
+  }
+  
+  .overflow-auto {
+    overflow: auto;
+  }
+  
+  .pb-24 {
+    padding-bottom: 6rem;
+  }
+  
+  .dashboard-header {
+    background: linear-gradient(90deg, #000 0%, #003300 100%);
+    padding: 10px 0;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #00ff00;
+  }
+  
+  .dashboard-header h1 {
+    font-size: 24px;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  
+  .section-title {
+    font-size: 18px;
+    color: #fff;
+    border-left: 4px solid #00ff00;
+    padding-left: 10px;
+  }
+  
+  .gauge-value {
+    font-size: 36px;
+    fill: #fff;
+    font-weight: bold;
+  }
+  
+  .gauge-percent {
+    font-size: 16px;
+    fill: #00ff00;
+  }
+  
+  .usage-value {
+    font-size: 18px;
+    font-weight: bold;
+  }
+  
+  .card {
+    border: 1px solid #222;
+    border-radius: 10px;
+    margin-bottom: 0.75rem;
+  }
+  
+  .form-select {
+    font-size: 0.8rem;
+    padding: 0.15rem 1.5rem 0.15rem 0.5rem;
+    height: auto;
+  }
+  
+  .btn-outline-success {
+    border-color: #00ff00;
+    color: #00ff00;
+  }
+  
+  .btn-outline-success:hover {
+    background-color: #003300;
+    border-color: #00ff00;
+  }
+  
+  .progress {
+    height: 8px;
+    border-radius: 5px;
+  }
+  
+  .gauge-card {
+    height: calc(50% - 0.5rem);
+  }
+  
+  /* Ensure SVG text is visible */
+  text {
+    fill: currentColor;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: #111;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #00aa00;
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #00ff00;
+  }
+  
+  /* Bottom navigation styling */
+  nav.fixed,
+  nav.position-fixed {
+    background-color: transparent !important;
+    z-index: 1000;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+  }
+  
+  /* Smaller text and components for better fit */
+  .small-title {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .small-text {
+    font-size: 0.8rem;
+  }
+  
+  .small-value {
+    font-size: 0.9rem;
+  }
+  
+  .small-list .list-group-item {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+    font-size: 0.85rem;
+  }
+  
+  /* Adjust for Tailwind classes */
+  .flex-grow {
+    flex-grow: 1;
+    background-color: #000;
+  }
+  
+  

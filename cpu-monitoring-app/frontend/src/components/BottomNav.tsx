@@ -31,7 +31,7 @@ const BottomNav = () => {
   ];
 
   return (
-    <nav className="position-fixed bottom-0 start-0 w-100 bg-black text-white p-3 shadow-lg d-flex justify-content-center">
+    <nav className="position-fixed bottom-0 start-0 w-100 bg-transparent text-white p-3 shadow-lg d-flex justify-content-center">
       <div className="d-flex justify-content-center w-50 gap-1">
         {navItems.map((item) => (
           <Link
@@ -39,18 +39,16 @@ const BottomNav = () => {
             to={item.path}
             className="d-flex flex-column align-items-center text-decoration-none"
           >
-            {/* Dynamic Icon (Active when clicked) */}
             <img
-  src={location.pathname === item.path ? item.activeIcon : item.icon}
-  alt={`${item.label} Icon`}
-  className="img-fluid"
-  style={{
-    width: item.path === "/" ? "110px" : "100px",  // Home icon is bigger
-    height: item.path === "/" ? "110px" : "100px",
-    objectFit: "contain"
-  }}
-/>
-
+              src={location.pathname === item.path ? item.activeIcon : item.icon}
+              alt={`${item.label} Icon`}
+              className="img-fluid"
+              style={{
+                width: item.path === "/" ? "110px" : "100px",  // Home icon is bigger
+                height: item.path === "/" ? "110px" : "100px",
+                objectFit: "contain"
+              }}
+            />
           </Link>
         ))}
       </div>
