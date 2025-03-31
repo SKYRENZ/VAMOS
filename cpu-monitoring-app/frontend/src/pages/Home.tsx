@@ -294,12 +294,39 @@ const Home = () => {
   const [diskUsage, setDiskUsage] = useState(45)
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCpuUsage(Math.floor(Math.random() * 101))
-      setGpuUsage(Math.floor(Math.random() * 101))
-      setMemoryUsage(Math.floor(Math.random() * 31) + 50) // 50-80% range
-      setDiskUsage(Math.floor(Math.random() * 21) + 40) // 40-60% range
-    }, 2000)
+    const fetchData = async () => {
+      try {
+        const [cpuResponse, memoryResponse, diskResponse] = await Promise.all([
+          fetch("http://127.0.0.1:5000/cpu-usage"),
+          fetch("http://127.0.0.1:5000/memory-usage"),
+          fetch("http://127.0.0.1:5000/disk-usage"),
+        ])
+
+        if (cpuResponse.ok) {
+          const cpuData = await cpuResponse.json()
+          setCpuUsage(cpuData.cpu_usage)
+        }
+
+        if (memoryResponse.ok) {
+          const memoryData = await memoryResponse.json()
+          setMemoryUsage(memoryData.memory_usage_percent)
+        }
+
+        if (diskResponse.ok) {
+          const diskData = await diskResponse.json()
+          setDiskUsage(diskData.disk_usage_percent)
+        }
+      } catch (error) {
+        console.log("Error fetching data, using mock values", error)
+        setCpuUsage(Math.floor(Math.random() * 101))
+        setGpuUsage(Math.floor(Math.random() * 101))
+        setMemoryUsage(Math.floor(Math.random() * 31) + 50) // 50-80% range
+        setDiskUsage(Math.floor(Math.random() * 21) + 40) // 40-60% range
+      }
+    }
+
+    fetchData()
+    const interval = setInterval(fetchData, 2000)
     return () => clearInterval(interval)
   }, [])
 
