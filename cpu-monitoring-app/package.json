@@ -17,6 +17,7 @@
     "nodemon": "^3.1.9"
   },
   "dependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "cpu-monitoring-app": "file:"
   }
 }
