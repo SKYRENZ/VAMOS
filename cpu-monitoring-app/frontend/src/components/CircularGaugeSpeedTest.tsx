@@ -48,7 +48,7 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
                         stroke="#FFCC00"
                     />
                     <text x="60" y="55" className="gauge-value">
-                        {ping || 50}
+                        {ping || 0}
                     </text>
                     <text x="60" y="70" className="gauge-label">ms</text>
                     <g className="gauge-icon">
@@ -78,7 +78,7 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
                         stroke="#00FF00"
                     />
                     <text x="60" y="55" className="gauge-value">
-                        {formatSpeed(downloadSpeed || 80.23)}
+                        {formatSpeed(downloadSpeed || 0)}
                     </text>
                     <text x="60" y="70" className="gauge-label">Mbit/s</text>
                     <g className="gauge-icon">
@@ -108,7 +108,7 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
                         stroke="#33CC33"
                     />
                     <text x="60" y="55" className="gauge-value">
-                        {formatSpeed(uploadSpeed || 15)}
+                        {formatSpeed(uploadSpeed || 0)}
                     </text>
                     <text x="60" y="70" className="gauge-label">Mbit/s</text>
                     <g className="gauge-icon">
@@ -126,7 +126,7 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
                     onClick={onStartTest}
                     disabled={isRunning}
                 >
-                    START
+                    {isRunning ? 'SCANNING...' : 'START'}
                 </button>
             </div>
         </div>
