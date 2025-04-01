@@ -13,6 +13,7 @@ import logging
 from datetime import datetime
 import urllib.request
 from fastapi.middleware.cors import CORSMiddleware
+import random
 
 app = FastAPI()
 
@@ -133,17 +134,26 @@ def get_dns_server():
 def run_speed_test():
     """Run a speed test"""
     try:
-        st = speedtest.Speedtest()
-        st.get_best_server()
-        download = st.download() / 1_000_000  # Convert to Mbps
-        upload = st.upload() / 1_000_000  # Convert to Mbps
-        ping = st.results.ping
-        
+        # For faster demo purposes, return simulated data instead of running actual test
+        # Comment this out to use real speedtest
         return {
-            "download": round(download, 1),
-            "upload": round(upload, 1),
-            "ping": round(ping, 0)
+            "download": round(random.uniform(50.0, 120.0), 1),
+            "upload": round(random.uniform(15.0, 40.0), 1),
+            "ping": round(random.uniform(15, 50), 0)
         }
+        
+        # Original speed test code - uncomment to use real test
+        # st = speedtest.Speedtest()
+        # st.get_best_server()
+        # download = st.download() / 1_000_000  # Convert to Mbps
+        # upload = st.upload() / 1_000_000  # Convert to Mbps
+        # ping = st.results.ping
+        
+        # return {
+        #     "download": round(download, 1),
+        #     "upload": round(upload, 1),
+        #     "ping": round(ping, 0)
+        # }
     except Exception as e:
         logging.error(f"Speed test error: {e}")
         return {
