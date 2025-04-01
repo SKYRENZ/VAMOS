@@ -124,63 +124,50 @@ const UsageBar = ({ title, value, color = "#00ff00" }: { title: string; value: n
 }
 
 const TemperatureBar = () => {
-  const [temperature, setTemperature] = useState(50)
-  const [isUsingMockData, setIsUsingMockData] = useState(false)
-
-  // API endpoint configuration
-  const API_URL = "http://127.0.0.1:5000/cpu-temperature"
+  const [cpuTemp, setCpuTemp] = useState(50);
+  const [gpuTemp, setGpuTemp] = useState(45);
+  const [isUsingMockData, setIsUsingMockData] = useState(false);
 
   useEffect(() => {
     const generateMockTemperature = () => {
-      const baseTemp = 45
-      const randomVariation = Math.floor(Math.random() * 30)
-      return baseTemp + randomVariation
-    }
+      const baseTemp = 45;
+      const randomVariation = Math.floor(Math.random() * 30);
+      return baseTemp + randomVariation;
+    };
 
-    const fetchTemperature = async () => {
+    const fetchTemperatures = async () => {
       try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 2000)
+        // Fetch CPU temperature
+        const cpuResponse = await fetch("http://localhost:5000/cpu-temperature", {
+          headers: { Accept: "application/json" },
+        });
+        const cpuData = await cpuResponse.json();
+        
+        // Fetch GPU temperature
+        const gpuResponse = await fetch("http://localhost:5000/gpu-temperature", {
+          headers: { Accept: "application/json" },
+        });
+        const gpuData = await gpuResponse.json();
 
-        const response = await fetch(API_URL, {
-          signal: controller.signal,
-          headers: {
-            Accept: "application/json",
-          },
-        })
-        clearTimeout(timeoutId)
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`)
+        if (cpuData.cpu_temperature !== undefined) {
+          setCpuTemp(Math.round(cpuData.cpu_temperature));
         }
-
-        const data = await response.json()
-
-        if (data.temperature !== undefined) {
-          setTemperature(data.temperature)
-          setIsUsingMockData(false)
-        } else if (data.error) {
-          throw new Error(data.error)
+        if (gpuData.gpu_temperature !== undefined) {
+          setGpuTemp(Math.round(gpuData.gpu_temperature));
         }
+        setIsUsingMockData(false);
       } catch (error) {
-        console.log("Using mock temperature data")
-        setIsUsingMockData(true)
-        setTemperature(generateMockTemperature())
+        console.log("Using mock temperature data");
+        setIsUsingMockData(true);
+        setCpuTemp(generateMockTemperature());
+        setGpuTemp(generateMockTemperature() - 5); // GPU usually runs slightly cooler
       }
-    }
+    };
 
-    fetchTemperature()
-
-    const interval = setInterval(() => {
-      if (isUsingMockData) {
-        setTemperature(generateMockTemperature())
-      } else {
-        fetchTemperature()
-      }
-    }, 2000)
-
-    return () => clearInterval(interval)
-  }, [isUsingMockData, API_URL])
+    fetchTemperatures();
+    const interval = setInterval(fetchTemperatures, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="card bg-dark text-white">
@@ -191,12 +178,17 @@ const TemperatureBar = () => {
         <ul className="list-group list-group-flush">
           <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
             <span>CPU Temperature</span>
-            <span className="text-success">{temperature} °C</span>
+            <span className={cpuTemp > 80 ? "text-danger" : "text-success"}>
+              {cpuTemp} °C
+            </span>
           </li>
           <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
             <span>GPU Temperature</span>
-            <span className="text-success">{Math.floor(temperature * 0.9)} °C</span>
+            <span className={gpuTemp > 80 ? "text-danger" : "text-success"}>
+              {gpuTemp} °C
+            </span>
           </li>
+          
           <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
             <span>GPU Clock</span>
             <span className="text-success">1250 MHz</span>
@@ -288,20 +280,47 @@ const StorageInfo = () => (
 )
 
 const Home = () => {
-  const [cpuUsage, setCpuUsage] = useState(50)
-  const [gpuUsage, setGpuUsage] = useState(30)
-  const [memoryUsage, setMemoryUsage] = useState(65)
-  const [diskUsage, setDiskUsage] = useState(45)
+  const [cpuUsage, setCpuUsage] = useState(50);
+  const [gpuUsage, setGpuUsage] = useState(30);
+  const [memoryUsage, setMemoryUsage] = useState(65);
+  const [diskUsage, setDiskUsage] = useState(45); // Add this line to declare diskUsage state
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCpuUsage(Math.floor(Math.random() * 101))
-      setGpuUsage(Math.floor(Math.random() * 101))
-      setMemoryUsage(Math.floor(Math.random() * 31) + 50) // 50-80% range
-      setDiskUsage(Math.floor(Math.random() * 21) + 40) // 40-60% range
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [])
+    const fetchUsageData = async () => {
+      try {
+        // Fetch CPU usage
+        const cpuResponse = await fetch("http://localhost:5000/cpu-usage");
+        const cpuData = await cpuResponse.json();
+        setCpuUsage(cpuData.usage || Math.floor(Math.random() * 101));
+
+        // Fetch GPU usage
+        const gpuResponse = await fetch("http://localhost:5000/gpu-usage");
+        const gpuData = await gpuResponse.json();
+        setGpuUsage(gpuData.usage || Math.floor(Math.random() * 101));
+
+        // Fetch Memory usage
+        const memoryResponse = await fetch("http://localhost:5000/memory-usage");
+        const memoryData = await memoryResponse.json();
+        setMemoryUsage(memoryData.usage || Math.floor(Math.random() * 31) + 50);
+
+        // Fetch Disk usage
+        const diskResponse = await fetch("http://localhost:5000/disk-usage");
+        const diskData = await diskResponse.json();
+        setDiskUsage(diskData.usage || Math.floor(Math.random() * 21) + 40);
+      } catch (error) {
+        console.error("Error fetching usage data:", error);
+        // Fallback to random data if API fails
+        setCpuUsage(Math.floor(Math.random() * 101));
+        setGpuUsage(Math.floor(Math.random() * 101));
+        setMemoryUsage(Math.floor(Math.random() * 31) + 50);
+        setDiskUsage(Math.floor(Math.random() * 21) + 40);
+      }
+    };
+
+    fetchUsageData();
+    const interval = setInterval(fetchUsageData, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="bg-black text-white min-vh-100">
