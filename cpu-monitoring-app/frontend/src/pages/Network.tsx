@@ -46,15 +46,7 @@ export const Network = () => {
     macAddress: "Not available"
   })
   const [speedTestData, setSpeedTestData] = useState<SpeedTestResult | null>(null)
-  const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([
-    {
-      id: "this-device",
-      name: "This Device",
-      status: "Active",
-      ipAddress: "127.0.0.1",
-      macAddress: "Not available"
-    }
-  ])
+  const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isRunningSpeedTest, setIsRunningSpeedTest] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -123,6 +115,14 @@ export const Network = () => {
 
   const formatIP = (ip: string | undefined) => {
     return ip || "Not available"
+  }
+
+  const getDeviceIcon = (deviceName: string) => {
+    const name = deviceName.toLowerCase();
+    if (name.includes("router")) return "fa-wifi";
+    if (name.includes("phone") || name.includes("mobile") || name.includes("android") || name.includes("iphone")) return "fa-mobile-alt";
+    if (name.includes("this device")) return "fa-desktop";
+    return "fa-laptop";
   }
 
   if (error) {
@@ -294,35 +294,51 @@ export const Network = () => {
                   Connected Devices
                 </h5>
                 <div className="connected-devices-list">
-                  {connectedDevices.map((device, index) => (
-                    <div
-                      key={device.id}
-                      className="device-card p-3 mb-2 rounded"
-                      style={{
-                        backgroundColor: '#121212',
-                        border: '1px solid #333333'
-                      }}
-                    >
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div>
-                          <span className="fw-bold" style={{ color: '#00FF00' }}>
-                            <i className="fas fa-desktop me-2"></i>
-                            {device.name}
+                  {connectedDevices && connectedDevices.length > 0 ? (
+                    connectedDevices.map((device) => (
+                      <div
+                        key={device.id}
+                        className="device-card p-3 mb-2 rounded"
+                        style={{
+                          backgroundColor: '#121212',
+                          border: '1px solid #333333'
+                        }}
+                      >
+                        <div className="d-flex justify-content-between align-items-center">
+                          <div>
+                            <span className="fw-bold" style={{ color: '#00FF00' }}>
+                              <i className={`fas ${getDeviceIcon(device.name)} me-2`}></i>
+                              {device.name}
+                            </span>
+                            <br />
+                            <small style={{ color: '#CCCCCC' }}>
+                              <i className="fas fa-network-wired me-2"></i>
+                              {device.ipAddress}
+                            </small>
+                            {device.macAddress && device.macAddress !== "Unknown" && (
+                              <>
+                                <br />
+                                <small style={{ color: '#AAAAAA', fontSize: '0.8em' }}>
+                                  <i className="fas fa-fingerprint me-2"></i>
+                                  {device.macAddress}
+                                </small>
+                              </>
+                            )}
+                          </div>
+                          <span className={`badge`}
+                            style={{ backgroundColor: device.status === "Active" ? '#00FF00' : '#666666', color: '#000' }}>
+                            <i className={`fas fa-${device.status === "Active" ? "check" : "times"} me-1`}></i>
+                            {device.status}
                           </span>
-                          <br />
-                          <small style={{ color: '#CCCCCC' }}>
-                            <i className="fas fa-network-wired me-2"></i>
-                            {device.ipAddress}
-                          </small>
                         </div>
-                        <span className={`badge ${device.status === "Active" ? "bg-success" : "bg-secondary"}`}
-                          style={{ backgroundColor: device.status === "Active" ? '#00FF00' : '#666666', color: '#000' }}>
-                          <i className={`fas fa-${device.status === "Active" ? "check" : "times"} me-1`}></i>
-                          {device.status}
-                        </span>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center p-3" style={{ color: '#CCCCCC' }}>
+                      <i className="fas fa-search me-2"></i>
+                      {isLoading ? "Scanning for devices..." : "No devices found"}
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
