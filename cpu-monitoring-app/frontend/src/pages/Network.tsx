@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import "./custom.css"
 import { Tooltip } from 'react-tooltip'
 import CircularGaugeSpeedTest from '../components/CircularGaugeSpeedTest'
+import BandwidthUsageGraph from '../components/BandwidthUsageGraph'
+import ConnectionQualityMonitor from '../components/ConnectionQualityMonitor'
 
 const API_URL = 'http://localhost:5000/api'
 
@@ -13,7 +15,9 @@ interface NetworkData {
   downloadSpeed: number
   uploadSpeed: number
   ping: number
+  jitter: number
   packetLoss: number
+  stability: number
   ipAddress: string
   dnsServer: string
   macAddress: string
@@ -33,6 +37,12 @@ interface ConnectedDevice {
   macAddress: string
 }
 
+interface BandwidthDataPoint {
+  timestamp: string
+  download: number
+  upload: number
+}
+
 export const Network = () => {
   const [networkData, setNetworkData] = useState<NetworkData | null>({
     connectionType: "Unknown",
@@ -40,7 +50,9 @@ export const Network = () => {
     downloadSpeed: 0,
     uploadSpeed: 0,
     ping: 0,
+    jitter: 0,
     packetLoss: 0,
+    stability: 0,
     ipAddress: "Not available",
     dnsServer: "Not available",
     macAddress: "Not available"
@@ -51,6 +63,9 @@ export const Network = () => {
   const [isRunningSpeedTest, setIsRunningSpeedTest] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [bandwidthHistory, setBandwidthHistory] = useState<BandwidthDataPoint[]>([])
+  const [latencyHistory, setLatencyHistory] = useState<number[]>([])
+  const [timeRange, setTimeRange] = useState<'5min' | '1hour' | '1day'>('5min')
 
   // Fetch all network data
   const fetchData = async () => {
@@ -61,6 +76,8 @@ export const Network = () => {
 
       setNetworkData(data.networkData)
       setConnectedDevices(data.connectedDevices)
+      setBandwidthHistory(data.bandwidthHistory || [])
+      setLatencyHistory(data.latencyHistory || [])
       setLastUpdated(new Date(data.lastUpdated))
       setError(null)
     } catch (err) {
@@ -68,6 +85,17 @@ export const Network = () => {
       setError('Failed to fetch network data. Make sure the Python backend is running.')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Fetch bandwidth history
+  const fetchBandwidthHistory = async () => {
+    try {
+      const response = await fetch(`${API_URL}/bandwidth-history?timeframe=${timeRange}`)
+      const data = await response.json()
+      setBandwidthHistory(data)
+    } catch (err) {
+      console.error('Error fetching bandwidth history:', err)
     }
   }
 
@@ -91,6 +119,11 @@ export const Network = () => {
     }
   }
 
+  // Handle time range change for bandwidth graph
+  const handleTimeRangeChange = (newRange: '5min' | '1hour' | '1day') => {
+    setTimeRange(newRange)
+  }
+
   // Initial data fetch and set up refresh interval
   useEffect(() => {
     fetchData()
@@ -100,6 +133,11 @@ export const Network = () => {
 
     return () => clearInterval(interval)
   }, [])
+
+  // Fetch bandwidth history when time range changes
+  useEffect(() => {
+    fetchBandwidthHistory()
+  }, [timeRange])
 
   const getSignalQuality = (signal: number) => {
     if (signal === 0) return { text: "Not tested", color: "#808080" }
@@ -220,6 +258,24 @@ export const Network = () => {
                 </div>
               </div>
             </div>
+
+            {/* Connection Quality Section */}
+            <div className="card border-0 shadow-lg" style={{ backgroundColor: '#121212' }}>
+              <div className="card-body">
+                <h5 className="card-title mb-3" style={{ color: '#00FF00' }}>
+                  <i className="fas fa-chart-line me-2"></i>
+                  Connection Quality
+                </h5>
+
+                <ConnectionQualityMonitor
+                  ping={networkData?.ping || 0}
+                  jitter={networkData?.jitter || 0}
+                  packetLoss={networkData?.packetLoss || 0}
+                  stability={networkData?.stability || 0}
+                  latencyHistory={latencyHistory}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="col-lg-6">
@@ -249,6 +305,14 @@ export const Network = () => {
                       <span style={{ color: '#00FF00' }}>{speedTestData.ping} ms</span>
                     </li>
                   )}
+                  <li className="list-group-item d-flex justify-content-between align-items-center"
+                    style={{ backgroundColor: '#121212', borderColor: '#333333', borderWidth: '0' }}>
+                    <span style={{ color: '#CCCCCC' }}>
+                      <i className="fas fa-random me-2"></i>
+                      Jitter
+                    </span>
+                    <span style={{ color: '#00FF00' }}>{networkData?.jitter || 0} <small style={{ color: '#CCCCCC' }}>ms</small></span>
+                  </li>
                   <li className="list-group-item d-flex justify-content-between align-items-center"
                     style={{ backgroundColor: '#121212', borderColor: '#333333', borderWidth: '0' }}>
                     <span style={{ color: '#CCCCCC' }}>
@@ -340,6 +404,65 @@ export const Network = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bandwidth Usage Graph - Moved to the bottom */}
+        <div className="row mb-4">
+          <div className="col-12">
+            <div className="card border-0 shadow-lg" style={{ backgroundColor: '#121212' }}>
+              <div className="card-body">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="card-title mb-0" style={{ color: '#00FF00' }}>
+                    <i className="fas fa-chart-area me-2"></i>
+                    Bandwidth Usage
+                  </h5>
+                  <div className="time-range-buttons">
+                    <button
+                      className={`btn btn-sm me-2 ${timeRange === '5min' ? 'active' : ''}`}
+                      style={{
+                        backgroundColor: timeRange === '5min' ? '#00FF00' : 'transparent',
+                        color: timeRange === '5min' ? '#000000' : '#CCCCCC',
+                        border: timeRange === '5min' ? 'none' : '1px solid #333333'
+                      }}
+                      onClick={() => handleTimeRangeChange('5min')}
+                    >
+                      5 Min
+                    </button>
+                    <button
+                      className={`btn btn-sm me-2 ${timeRange === '1hour' ? 'active' : ''}`}
+                      style={{
+                        backgroundColor: timeRange === '1hour' ? '#00FF00' : 'transparent',
+                        color: timeRange === '1hour' ? '#000000' : '#CCCCCC',
+                        border: timeRange === '1hour' ? 'none' : '1px solid #333333'
+                      }}
+                      onClick={() => handleTimeRangeChange('1hour')}
+                    >
+                      1 Hour
+                    </button>
+                    <button
+                      className={`btn btn-sm ${timeRange === '1day' ? 'active' : ''}`}
+                      style={{
+                        backgroundColor: timeRange === '1day' ? '#00FF00' : 'transparent',
+                        color: timeRange === '1day' ? '#000000' : '#CCCCCC',
+                        border: timeRange === '1day' ? 'none' : '1px solid #333333'
+                      }}
+                      onClick={() => handleTimeRangeChange('1day')}
+                    >
+                      1 Day
+                    </button>
+                  </div>
+                </div>
+                {bandwidthHistory.length > 0 ? (
+                  <BandwidthUsageGraph bandwidthHistory={bandwidthHistory} timeRange={timeRange} />
+                ) : (
+                  <div className="text-center py-5" style={{ color: '#CCCCCC' }}>
+                    <i className="fas fa-chart-area mb-3" style={{ fontSize: '2rem' }}></i>
+                    <p>No bandwidth data available yet. Data will appear as your connection is monitored.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
