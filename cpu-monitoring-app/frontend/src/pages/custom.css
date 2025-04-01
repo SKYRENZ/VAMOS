@@ -47,7 +47,7 @@ body {
   
   .gauge-percent {
     font-size: 16px;
-    fill: rgb(0, 255, 0);
+    fill: #00ff00;
   }
   
   .usage-value {
@@ -68,7 +68,7 @@ body {
   }
   
   .btn-outline-success {
-    border-color: hsl(120, 100%, 50%);
+    border-color: #00ff00;
     color: #00ff00;
   }
   
@@ -216,5 +216,17 @@ body {
     margin-right: 0.5rem;
     vertical-align: middle;
   }
+  .charging-gif-container {
+    position: absolute;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 50;
+  }
   
+  .charging-gif {
+    max-width: 120px;
+    max-height: 120px;
+    opacity: 0.9;
+  }
   
