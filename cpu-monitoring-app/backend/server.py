@@ -14,10 +14,12 @@ from datetime import datetime, timedelta
 import urllib.request
 from fastapi.middleware.cors import CORSMiddleware
 import random
+import wmi
+import subprocess
 from collections import deque
 
 app = FastAPI()
-
+print(app.routes)
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -562,27 +564,97 @@ async def get_system_info():
 
 @app.get("/cpu-temperature")
 async def get_cpu_temperature():
+    """Get CPU temperature with multiple fallback methods"""
     try:
-        # Get CPU temperature (may not be available on all systems)
-        temp = psutil.sensors_temperatures().get("coretemp", [{}])[0].get("current", 50)
-        return JSONResponse(content={"temperature": temp})
+        # Method 1: WMI (Windows Management Instrumentation)
+        try:
+            w = wmi.WMI(namespace="root\wmi")
+            temps = [t.CurrentTemperature/10 - 273.15 for t in w.MSAcpi_ThermalZoneTemperature()]
+            if temps:
+                return {"cpu_temperature": round(temps[0], 1)}
+        except Exception as e:
+            print(f"WMI Method 1 failed: {e}")
+
+        # Method 2: OpenHardwareMonitor WMI
+        try:
+            w = wmi.WMI(namespace="root\OpenHardwareMonitor")
+            cpu_temp = next((s.Value for s in w.Sensor() 
+                           if s.SensorType == "Temperature" and "CPU" in s.Name), None)
+            if cpu_temp:
+                return {"cpu_temperature": cpu_temp}
+        except Exception as e:
+            print(f"OpenHardwareMonitor failed: {e}")
+
+        # Method 3: psutil (cross-platform but limited)
+        try:
+            if hasattr(psutil, "sensors_temperatures"):
+                temps = psutil.sensors_temperatures()
+                if 'coretemp' in temps:
+                    return {"cpu_temperature": temps['coretemp'][0].current}
+        except Exception as e:
+            print(f"psutil method failed: {e}")
+
+        # Method 4: Windows Registry (some systems)
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
+                               r"HARDWARE\DESCRIPTION\System\ThermalZone\0")
+            temp_kelvin = winreg.QueryValueEx(key, "Temperature")[0] / 10
+            return {"cpu_temperature": round(temp_kelvin - 273.15, 1)}
+        except Exception as e:
+            print(f"Registry method failed: {e}")
+
+        return {"error": "All temperature methods failed"}, 500
+
     except Exception as e:
-        print("Error fetching CPU temperature:", e)
-        return JSONResponse(content={"error": "Failed to fetch temperature"}, status_code=500)
+        return {"error": f"CPU temperature check failed: {str(e)}"}, 500
 
-if __name__ == "__main__":
-    # Start background updater thread
-    update_thread = threading.Thread(target=background_updater)
-    update_thread.daemon = True
-    update_thread.start()
-    
+
+
+@app.get("/gpu-temperature",
+         summary="Get GPU Temperature",
+         response_description="GPU temperature in Celsius or error message",
+         tags=["Hardware Monitoring"])
+async def get_gpu_temperature():
+    """Get GPU temperature from NVIDIA or AMD graphics cards"""
     try:
-        print("Server running on http://localhost:5000")
-        import uvicorn
-        uvicorn.run(app, host="127.0.0.1", port=5000)
-    finally:
-        stop_thread = True
-        if update_thread:
-            update_thread.join(timeout=1)
+        # Method 1: NVIDIA SMI
+        try:
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                temp = result.stdout.strip()
+                if temp and temp.isdigit():
+                    return {"gpu_temperature": int(temp)}
+        except Exception as e:
+            print(f"NVIDIA-SMI failed: {e}")
 
+        # Method 2: OpenHardwareMonitor
+        try:
+            w = wmi.WMI(namespace="root\OpenHardwareMonitor")
+            gpu_temp = next((s.Value for s in w.Sensor() 
+                           if s.SensorType == "Temperature" and "GPU" in s.Name), None)
+            if gpu_temp:
+                return {"gpu_temperature": gpu_temp}
+        except Exception as e:
+            print(f"OpenHardwareMonitor failed: {e}")
 
+        # Method 3: AMD GPU (alternative approach)
+        try:
+            result = subprocess.run(
+                ["rocm-smi", "--showtemp"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                match = re.search(r"GPU\s*\[(\d+)\]\s*:\s*(\d+)", result.stdout)
+                if match:
+                    return {"gpu_temperature": int(match.group(2))}
+        except Exception as e:
+            print(f"ROCm-SMI failed: {e}")
+
+        return {"error": "No GPU temperature data available"}, 500
+
+    except Exception as e:
+        return {"error": f"GPU temperature check failed: {str(e)}"}, 500
