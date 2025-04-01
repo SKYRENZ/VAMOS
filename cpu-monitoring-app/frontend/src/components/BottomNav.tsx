@@ -1,10 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
-import BatteryIcon from "../assets/Battery.png";
-import HomeIcon from "../assets/Home.png";
-import NetworkIcon from "../assets/Network.png";
-import ActiveHome from "../assets/ActiveHome.png";
-import ActiveBattery from "../assets/ActiveBattery.png";
-import ActiveNetwork from "../assets/ActiveNetwork.png";
+import BatteryIcon from "../assets/BatteryBtn.png";
+import HomeIcon from "../assets/HomeBtn.png";
+import NetworkIcon from "../assets/NetworkBtn.png";
+import ActiveHome from "../assets/HomeBtnActive.png";
+import ActiveBattery from "../assets/BatteryBtnActive.png";
+import ActiveNetwork from "../assets/NetworkBtnActive.png";
 
 const BottomNav = () => {
   const location = useLocation();
@@ -17,7 +17,7 @@ const BottomNav = () => {
       activeIcon: ActiveBattery,
     },
     {
-      path: "/",
+      path: "/home",
       label: "Home",
       icon: HomeIcon,
       activeIcon: ActiveHome,
@@ -44,8 +44,8 @@ const BottomNav = () => {
               alt={`${item.label} Icon`}
               className="img-fluid"
               style={{
-                width: item.path === "/" ? "110px" : "100px",  // Home icon is bigger
-                height: item.path === "/" ? "110px" : "100px",
+                width: item.path === "/home" ? "110px" : "100px",  // Home icon is bigger
+                height: item.path === "/home" ? "110px" : "100px",
                 objectFit: "contain"
               }}
             />

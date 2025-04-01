@@ -47,7 +47,7 @@ body {
   
   .gauge-percent {
     font-size: 16px;
-    fill: #00ff00;
+    fill: rgb(0, 255, 0);
   }
   
   .usage-value {
@@ -68,7 +68,7 @@ body {
   }
   
   .btn-outline-success {
-    border-color: #00ff00;
+    border-color: hsl(120, 100%, 50%);
     color: #00ff00;
   }
   
