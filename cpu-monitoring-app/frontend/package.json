@@ -17,6 +17,7 @@
     "@mui/x-charts": "^7.28.0",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.11.3",
+    "frontend": "file:",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.4.1",
