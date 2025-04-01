@@ -568,7 +568,7 @@ async def get_cpu_temperature():
     try:
         # Method 1: WMI (Windows Management Instrumentation)
         try:
-            w = wmi.WMI(namespace="root\wmi")
+            w = wmi.WMI(namespace=r"root\wmi")
             temps = [t.CurrentTemperature/10 - 273.15 for t in w.MSAcpi_ThermalZoneTemperature()]
             if temps:
                 return {"cpu_temperature": round(temps[0], 1)}
@@ -577,13 +577,14 @@ async def get_cpu_temperature():
 
         # Method 2: OpenHardwareMonitor WMI
         try:
-            w = wmi.WMI(namespace="root\OpenHardwareMonitor")
+            w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
             cpu_temp = next((s.Value for s in w.Sensor() 
                            if s.SensorType == "Temperature" and "CPU" in s.Name), None)
             if cpu_temp:
                 return {"cpu_temperature": cpu_temp}
         except Exception as e:
-            print(f"OpenHardwareMonitor failed: {e}")
+            print(f"OpenHardwareMonitor failed: {str(e)}")
+            print("Please ensure OpenHardwareMonitor is installed and running as administrator")
 
         # Method 3: psutil (cross-platform but limited)
         try:
@@ -633,13 +634,14 @@ async def get_gpu_temperature():
 
         # Method 2: OpenHardwareMonitor
         try:
-            w = wmi.WMI(namespace="root\OpenHardwareMonitor")
+            w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
             gpu_temp = next((s.Value for s in w.Sensor() 
                            if s.SensorType == "Temperature" and "GPU" in s.Name), None)
             if gpu_temp:
                 return {"gpu_temperature": gpu_temp}
         except Exception as e:
-            print(f"OpenHardwareMonitor failed: {e}")
+            print(f"OpenHardwareMonitor failed: {str(e)}")
+            print("Please ensure OpenHardwareMonitor is installed and running as administrator")
 
         # Method 3: AMD GPU (alternative approach)
         try:
