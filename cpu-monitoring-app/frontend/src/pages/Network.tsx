@@ -6,6 +6,7 @@ import { Tooltip } from 'react-tooltip'
 import CircularGaugeSpeedTest from '../components/CircularGaugeSpeedTest'
 import BandwidthUsageGraph from '../components/BandwidthUsageGraph'
 import ConnectionQualityMonitor from '../components/ConnectionQualityMonitor'
+import IOMonitor from '../components/IOMonitor'
 
 const API_URL = 'http://localhost:5000/api'
 
@@ -21,6 +22,16 @@ interface NetworkData {
   ipAddress: string
   dnsServer: string
   macAddress: string
+}
+
+interface IOData {
+  uploadSpeed: number
+  downloadSpeed: number
+  uploadPackets: number
+  downloadPackets: number
+  activeInterfaces: string[]
+  bytesSent: number
+  bytesReceived: number
 }
 
 interface SpeedTestResult {
@@ -57,6 +68,15 @@ export const Network = () => {
     dnsServer: "Not available",
     macAddress: "Not available"
   })
+  const [ioData, setIOData] = useState<IOData | null>({
+    uploadSpeed: 0,
+    downloadSpeed: 0,
+    uploadPackets: 0,
+    downloadPackets: 0,
+    activeInterfaces: [],
+    bytesSent: 0,
+    bytesReceived: 0
+  })
   const [speedTestData, setSpeedTestData] = useState<SpeedTestResult | null>(null)
   const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -75,6 +95,7 @@ export const Network = () => {
       const data = await response.json()
 
       setNetworkData(data.networkData)
+      setIOData(data.ioData)
       setConnectedDevices(data.connectedDevices)
       setBandwidthHistory(data.bandwidthHistory || [])
       setLatencyHistory(data.latencyHistory || [])
@@ -406,6 +427,23 @@ export const Network = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* I/O Monitor Section */}
+        <div className="row mb-4">
+          <div className="col-12">
+            {ioData && (
+              <IOMonitor
+                uploadSpeed={ioData.uploadSpeed}
+                downloadSpeed={ioData.downloadSpeed}
+                uploadPackets={ioData.uploadPackets}
+                downloadPackets={ioData.downloadPackets}
+                activeInterfaces={ioData.activeInterfaces}
+                bytesSent={ioData.bytesSent}
+                bytesReceived={ioData.bytesReceived}
+              />
+            )}
           </div>
         </div>
 

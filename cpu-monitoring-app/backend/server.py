@@ -32,7 +32,8 @@ network_cache = {
     "network_data": None,
     "speed_test": None,
     "connected_devices": None,
-    "last_updated": None
+    "last_updated": None,
+    "io_data": None  # Add Network IO data to cache
 }
 
 # Function to generate initial sample data
@@ -67,6 +68,9 @@ def generate_sample_bandwidth_data(count=20):
 # Store bandwidth history (last 1 hour data, 5 min intervals)
 bandwidth_history = deque(generate_sample_bandwidth_data(20), maxlen=60)  # Store 60 data points
 ping_history = deque([random.randint(15, 50) for _ in range(10)], maxlen=20)  # Initialize with sample data
+
+# Store Network IO history
+network_io_history = deque([], maxlen=60)  # Store 60 data points
 
 # Background update thread
 update_thread = None
@@ -296,6 +300,53 @@ def scan_network():
             "macAddress": get_mac_address()
         }]
 
+def get_network_io():
+    """Get network I/O statistics"""
+    try:
+        # Get initial network I/O counters
+        net_io = psutil.net_io_counters()
+        time.sleep(1)  # Wait 1 second to measure
+        net_io_after = psutil.net_io_counters()
+        
+        # Calculate speeds and packet counts
+        bytes_sent = net_io_after.bytes_sent - net_io.bytes_sent
+        bytes_recv = net_io_after.bytes_recv - net_io.bytes_recv
+        packets_sent = net_io_after.packets_sent - net_io.packets_sent
+        packets_recv = net_io_after.packets_recv - net_io.packets_recv
+        
+        # Calculate speeds in Mbps
+        upload_speed = bytes_sent * 8 / 1_000_000  # Convert to Mbps
+        download_speed = bytes_recv * 8 / 1_000_000  # Convert to Mbps
+        
+        # Calculate packet rates
+        upload_packets = packets_sent
+        download_packets = packets_recv
+        
+        # Get network interface details
+        interfaces = psutil.net_if_stats()
+        active_interfaces = [name for name, stats in interfaces.items() if stats.isup]
+        
+        return {
+            "uploadSpeed": round(upload_speed, 2),
+            "downloadSpeed": round(download_speed, 2),
+            "uploadPackets": upload_packets,
+            "downloadPackets": download_packets,
+            "activeInterfaces": active_interfaces,
+            "bytesSent": bytes_sent,
+            "bytesReceived": bytes_recv
+        }
+    except Exception as e:
+        logging.error(f"Network I/O monitoring error: {e}")
+        return {
+            "uploadSpeed": 0,
+            "downloadSpeed": 0,
+            "uploadPackets": 0,
+            "downloadPackets": 0,
+            "activeInterfaces": [],
+            "bytesSent": 0,
+            "bytesReceived": 0
+        }
+
 def update_network_data():
     """Update all network data"""
     try:
@@ -356,6 +407,9 @@ def update_network_data():
             "download": round(download_speed, 1),
             "upload": round(upload_speed, 1)
         })
+        
+        # Update Network IO data
+        network_cache["io_data"] = get_network_io()
         
         network_cache["connected_devices"] = scan_network()
         network_cache["last_updated"] = datetime.now().isoformat()
@@ -447,6 +501,7 @@ async def get_all_data():
         "connectedDevices": network_cache["connected_devices"],
         "bandwidthHistory": recent_bandwidth,
         "latencyHistory": list(ping_history),
+        "ioData": network_cache["io_data"],
         "lastUpdated": network_cache["last_updated"]
     })
 
