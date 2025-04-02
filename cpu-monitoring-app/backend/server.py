@@ -17,6 +17,8 @@ import random
 import wmi
 import subprocess
 from collections import deque
+from disk_info import get_disk_data
+from memory_info import get_memory_data
 
 app = FastAPI()
 print(app.routes)
@@ -28,6 +30,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/api/memory")
+async def fetch_memory():
+    """API endpoint to fetch memory information."""
+    return get_memory_data()
+
+@app.get("/api/disks")
+async def fetch_disks():
+    """API endpoint to fetch disk information."""
+    return get_disk_data()
 
 # Global cache for network data
 network_cache = {
@@ -513,15 +525,6 @@ async def get_cpu_usage():
     cpu_percent = psutil.cpu_percent(interval=1)
     return JSONResponse(content={"cpu_usage": cpu_percent})
 
-@app.get("/memory-usage")
-async def get_memory_usage():
-    memory = psutil.virtual_memory()
-    return JSONResponse(content={
-        "total_memory": memory.total,
-        "available_memory": memory.available,
-        "used_memory": memory.used,
-        "memory_usage_percent": memory.percent
-    })
 
 @app.get("/disk-usage")
 async def get_disk_usage():

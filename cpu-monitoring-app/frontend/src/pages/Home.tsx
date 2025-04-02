@@ -4,7 +4,10 @@ import { useState, useEffect } from "react"
 import { PieChart, Pie, Cell } from "recharts"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "./custom.css" // For custom styling on top of Bootstrap
-
+import StorageInfo from "../components/StorageInfo" // Import the StorageInfo component
+import { UsageBar } from "../components/UsageBar";
+import useMemoryData from "../hooks/useMemoryData" // Import the custom hook for memory data
+import useDiskData from "../hooks/useDiskData" // Import the custom hook for disk data
 const RADIAN = Math.PI / 180
 const cx = 150
 const cy = 150
@@ -93,35 +96,6 @@ const GaugeChart = ({ title, value }: GaugeChartProps) => (
     </div>
   </div>
 )
-
-const UsageBar = ({ title, value, color = "#00ff00" }: { title: string; value: number; color?: string }) => {
-  return (
-    <div className="card bg-dark text-white mb-3">
-      <div className="card-body">
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <h5 className="card-title mb-0">{title}</h5>
-          <span className="usage-value">
-            {value}
-            <span className="text-success">%</span>
-          </span>
-        </div>
-        <div className="progress bg-secondary">
-          <div
-            className="progress-bar"
-            role="progressbar"
-            style={{
-              width: `${value}%`,
-              backgroundColor: color,
-            }}
-            aria-valuenow={value}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          ></div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 const TemperatureBar = () => {
   const [cpuTemp, setCpuTemp] = useState(50);
@@ -217,110 +191,43 @@ const SystemSpecs = () => (
           <span className="text-success">NVIDIA RTX 3070</span>
         </li>
         <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-          <span>RAM</span>
-          <span className="text-success">32 GB DDR4</span>
-        </li>
-        <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
           <span>Fan Speed</span>
           <span className="text-success">1200 RPM</span>
         </li>
       </ul>
     </div>
   </div>
-)
-
-const StorageInfo = () => (
-  <div className="card bg-dark text-white">
-    <div className="card-body">
-      <h5 className="card-title mb-3">Storage & Network</h5>
-      <ul className="list-group list-group-flush">
-        <li className="list-group-item bg-dark text-white border-secondary">
-          <div className="d-flex justify-content-between align-items-center mb-1">
-            <span>SSD</span>
-            <span className="text-success">650 GB / 1 TB</span>
-          </div>
-          <div className="progress bg-secondary">
-            <div
-              className="progress-bar bg-success"
-              style={{ width: "65%" }}
-              role="progressbar"
-              aria-valuenow={65}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            ></div>
-          </div>
-        </li>
-        <li className="list-group-item bg-dark text-white border-secondary">
-          <div className="d-flex justify-content-between align-items-center mb-1">
-            <span>HDD</span>
-            <span className="text-success">1.2 TB / 3 TB</span>
-          </div>
-          <div className="progress bg-secondary">
-            <div
-              className="progress-bar bg-success"
-              style={{ width: "40%" }}
-              role="progressbar"
-              aria-valuenow={40}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            ></div>
-          </div>
-        </li>
-        <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-          <span>Network</span>
-          <span className="text-success">1 Gbps</span>
-        </li>
-        <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-          <span>Power Plan</span>
-          <span className="text-success">Performance</span>
-        </li>
-      </ul>
-    </div>
-  </div>
-)
+);
 
 const Home = () => {
-  const [cpuUsage, setCpuUsage] = useState(50);
-  const [gpuUsage, setGpuUsage] = useState(30);
-  const [memoryUsage, setMemoryUsage] = useState(65);
-  const [diskUsage, setDiskUsage] = useState(45); // Add this line to declare diskUsage state
+  const [cpuUsage, setCpuUsage] = useState(50)
+  const [gpuUsage, setGpuUsage] = useState(30)
+  const { memory, error: memoryError } = useMemoryData() // Use the memory data from the hook
 
   useEffect(() => {
     const fetchUsageData = async () => {
       try {
         // Fetch CPU usage
-        const cpuResponse = await fetch("http://localhost:5000/cpu-usage");
-        const cpuData = await cpuResponse.json();
-        setCpuUsage(cpuData.usage || Math.floor(Math.random() * 101));
+        const cpuResponse = await fetch("http://localhost:5000/cpu-usage")
+        const cpuData = await cpuResponse.json()
+        setCpuUsage(cpuData.usage || Math.floor(Math.random() * 101))
 
         // Fetch GPU usage
-        const gpuResponse = await fetch("http://localhost:5000/gpu-usage");
-        const gpuData = await gpuResponse.json();
-        setGpuUsage(gpuData.usage || Math.floor(Math.random() * 101));
-
-        // Fetch Memory usage
-        const memoryResponse = await fetch("http://localhost:5000/memory-usage");
-        const memoryData = await memoryResponse.json();
-        setMemoryUsage(memoryData.usage || Math.floor(Math.random() * 31) + 50);
-
-        // Fetch Disk usage
-        const diskResponse = await fetch("http://localhost:5000/disk-usage");
-        const diskData = await diskResponse.json();
-        setDiskUsage(diskData.usage || Math.floor(Math.random() * 21) + 40);
+        const gpuResponse = await fetch("http://localhost:5000/gpu-usage")
+        const gpuData = await gpuResponse.json()
+        setGpuUsage(gpuData.usage || Math.floor(Math.random() * 101))
       } catch (error) {
-        console.error("Error fetching usage data:", error);
+        console.error("Error fetching usage data:", error)
         // Fallback to random data if API fails
-        setCpuUsage(Math.floor(Math.random() * 101));
-        setGpuUsage(Math.floor(Math.random() * 101));
-        setMemoryUsage(Math.floor(Math.random() * 31) + 50);
-        setDiskUsage(Math.floor(Math.random() * 21) + 40);
+        setCpuUsage(Math.floor(Math.random() * 101))
+        setGpuUsage(Math.floor(Math.random() * 101))
       }
-    };
+    }
 
-    fetchUsageData();
-    const interval = setInterval(fetchUsageData, 2000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchUsageData()
+    const interval = setInterval(fetchUsageData, 2000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="bg-black text-white min-vh-100">
@@ -363,11 +270,41 @@ const Home = () => {
           </div>
 
           <div className="col-lg-4 mb-4">
-            <UsageBar title="Disk" value={diskUsage} />
-            <button className="btn btn-outline-success w-100 mb-4">Clean up the disk</button>
-
-            <UsageBar title="Memory" value={memoryUsage} color="#00cc00" />
-            <button className="btn btn-outline-success w-100 mb-4">Free up memory</button>
+            {memoryError ? (
+              <div className="text-danger">Error: {memoryError}</div>
+            ) : memory ? (
+              <>
+                <UsageBar
+                  title="Memory Usage"
+                  value={parseFloat(((memory.used / memory.total) * 100).toFixed(1))} // Fix: Convert string to number
+                  color="#00cc00"
+                />
+                <div className="mt-3">
+                  <ul className="list-group list-group-flush">
+                    <li className="list-group-item bg-dark text-white border-secondary">
+                      <div className="d-flex justify-content-between">
+                        <span>Total</span>
+                        <span>{(memory.total / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+                      </div>
+                    </li>
+                    <li className="list-group-item bg-dark text-white border-secondary">
+                      <div className="d-flex justify-content-between">
+                        <span>Available</span>
+                        <span>{(memory.available / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+                      </div>
+                    </li>
+                    <li className="list-group-item bg-dark text-white border-secondary">
+                      <div className="d-flex justify-content-between">
+                        <span>Cached</span>
+                        <span>{(memory.cached / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              </>
+            ) : (
+              <div>Loading...</div>
+            )}
           </div>
 
           <div className="col-lg-4">
@@ -376,7 +313,7 @@ const Home = () => {
                 <SystemSpecs />
               </div>
               <div className="col-12 mb-4">
-                <StorageInfo />
+                <StorageInfo /> {/* Keep the StorageInfo component */}
               </div>
               <div className="col-12">
                 <TemperatureBar />
@@ -390,4 +327,3 @@ const Home = () => {
 }
 
 export default Home
-
