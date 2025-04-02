@@ -217,67 +217,61 @@ const SystemSpecs = () => (
           <span className="text-success">NVIDIA RTX 3070</span>
         </li>
         <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-          <span>RAM</span>
-          <span className="text-success">32 GB DDR4</span>
-        </li>
-        <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
           <span>Fan Speed</span>
           <span className="text-success">1200 RPM</span>
         </li>
       </ul>
     </div>
   </div>
-)
+);
 
-const StorageInfo = () => (
-  <div className="card bg-dark text-white">
-    <div className="card-body">
-      <h5 className="card-title mb-3">Storage & Network</h5>
-      <ul className="list-group list-group-flush">
-        <li className="list-group-item bg-dark text-white border-secondary">
-          <div className="d-flex justify-content-between align-items-center mb-1">
-            <span>SSD</span>
-            <span className="text-success">650 GB / 1 TB</span>
-          </div>
-          <div className="progress bg-secondary">
-            <div
-              className="progress-bar bg-success"
-              style={{ width: "65%" }}
-              role="progressbar"
-              aria-valuenow={65}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            ></div>
-          </div>
-        </li>
-        <li className="list-group-item bg-dark text-white border-secondary">
-          <div className="d-flex justify-content-between align-items-center mb-1">
-            <span>HDD</span>
-            <span className="text-success">1.2 TB / 3 TB</span>
-          </div>
-          <div className="progress bg-secondary">
-            <div
-              className="progress-bar bg-success"
-              style={{ width: "40%" }}
-              role="progressbar"
-              aria-valuenow={40}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            ></div>
-          </div>
-        </li>
-        <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-          <span>Network</span>
-          <span className="text-success">1 Gbps</span>
-        </li>
-        <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-          <span>Power Plan</span>
-          <span className="text-success">Performance</span>
-        </li>
-      </ul>
+const StorageInfo = () => {
+  const [disks, setDisks] = useState<{ device: string; mountpoint: string; total: number; used: number; percent: number }[]>([]);
+
+  useEffect(() => {
+    const fetchDisks = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/disks");
+        const data = await response.json();
+        setDisks(data.disks || []);
+      } catch (error) {
+        console.error("Error fetching disk data:", error);
+      }
+    };
+
+    fetchDisks();
+  }, []);
+
+  return (
+    <div className="card bg-dark text-white">
+      <div className="card-body">
+        <h5 className="card-title mb-3">Storage</h5>
+        <ul className="list-group list-group-flush">
+          {disks.map((disk, index) => (
+            <li key={index} className="list-group-item bg-dark text-white border-secondary">
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <span>{disk.device} ({disk.mountpoint})</span>
+                <span className="text-success">
+                  {((disk.used / disk.total) * 100).toFixed(1)}% used
+                </span>
+              </div>
+              <div className="progress bg-secondary">
+                <div
+                  className="progress-bar bg-success"
+                  style={{ width: `${disk.percent}%` }}
+                  role="progressbar"
+                  aria-valuenow={disk.percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                ></div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
-  </div>
-)
+  );
+};
 
 const Home = () => {
   const [cpuUsage, setCpuUsage] = useState(50);

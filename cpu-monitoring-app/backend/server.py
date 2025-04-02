@@ -29,6 +29,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from disk_info import get_disk_data
+
+@app.get("/api/disks")
+async def fetch_disks():
+    """API endpoint to fetch disk information."""
+    return get_disk_data()
+
 # Global cache for network data
 network_cache = {
     "network_data": None,
