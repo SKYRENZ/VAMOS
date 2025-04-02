@@ -101,6 +101,10 @@ const GaugeChart = ({ title, value }: GaugeChartProps) => (
 const TemperatureBar = () => {
   const [cpuTemp, setCpuTemp] = useState(50);
   const [gpuTemp, setGpuTemp] = useState(45);
+  const [gpuStats, setGpuStats] = useState({
+    gpu_clock_speed: 0,
+    vram_clock_speed: 0
+  });
   const [isUsingMockData, setIsUsingMockData] = useState(false);
 
   useEffect(() => {
@@ -124,18 +128,34 @@ const TemperatureBar = () => {
         });
         const gpuData = await gpuResponse.json();
 
+        // Fetch GPU stats (clock speeds)
+        const gpuStatsResponse = await fetch("http://localhost:5000/gpu-stats", {
+          headers: { Accept: "application/json" },
+        });
+        const gpuStatsData = await gpuStatsResponse.json();
+
         if (cpuData.cpu_temperature !== undefined) {
           setCpuTemp(Math.round(cpuData.cpu_temperature));
         }
         if (gpuData.gpu_temperature !== undefined) {
           setGpuTemp(Math.round(gpuData.gpu_temperature));
         }
+        if (gpuStatsData.gpu_clock_speed !== undefined && gpuStatsData.vram_clock_speed !== undefined) {
+          setGpuStats({
+            gpu_clock_speed: gpuStatsData.gpu_clock_speed,
+            vram_clock_speed: gpuStatsData.vram_clock_speed
+          });
+        }
         setIsUsingMockData(false);
       } catch (error) {
         console.log("Using mock temperature data");
         setIsUsingMockData(true);
         setCpuTemp(generateMockTemperature());
-        setGpuTemp(generateMockTemperature() - 5); // GPU usually runs slightly cooler
+        setGpuTemp(generateMockTemperature() - 5);
+        setGpuStats({
+          gpu_clock_speed: Math.floor(Math.random() * 500) + 1200, // Random between 1200-1700
+          vram_clock_speed: Math.floor(Math.random() * 1000) + 5000 // Random between 5000-6000
+        });
       }
     };
 
@@ -166,17 +186,19 @@ const TemperatureBar = () => {
           
           <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
             <span>GPU Clock</span>
-            <span className="text-success">1250 MHz</span>
+            <span className="text-success">{gpuStats.gpu_clock_speed} MHz</span>
           </li>
           <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
             <span>VRAM Clock</span>
-            <span className="text-success">6000 MHz</span>
+            <span className="text-success">{gpuStats.vram_clock_speed} MHz</span>
           </li>
         </ul>
       </div>
     </div>
   )
 }
+
+    
 
 
 const Home = () => {
