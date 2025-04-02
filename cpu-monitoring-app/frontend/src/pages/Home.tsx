@@ -7,7 +7,8 @@ import "./custom.css" // For custom styling on top of Bootstrap
 import StorageInfo from "../components/StorageInfo" // Import the StorageInfo component
 import { UsageBar } from "../components/UsageBar";
 import useMemoryData from "../hooks/useMemoryData" // Import the custom hook for memory data
-import useDiskData from "../hooks/useDiskData" // Import the custom hook for disk data
+import SystemSpecs from "../components/SystemSpecs"; 
+
 const RADIAN = Math.PI / 180
 const cx = 150
 const cy = 150
@@ -177,57 +178,36 @@ const TemperatureBar = () => {
   )
 }
 
-const SystemSpecs = () => (
-  <div className="card bg-dark text-white mb-4">
-    <div className="card-body">
-      <h5 className="card-title mb-3">System Specifications</h5>
-      <ul className="list-group list-group-flush">
-        <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-          <span>CPU</span>
-          <span className="text-success">AMD Ryzen 7 5800X</span>
-        </li>
-        <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-          <span>GPU</span>
-          <span className="text-success">NVIDIA RTX 3070</span>
-        </li>
-        <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-          <span>Fan Speed</span>
-          <span className="text-success">1200 RPM</span>
-        </li>
-      </ul>
-    </div>
-  </div>
-);
 
 const Home = () => {
-  const [cpuUsage, setCpuUsage] = useState(50)
-  const [gpuUsage, setGpuUsage] = useState(30)
-  const { memory, error: memoryError } = useMemoryData() // Use the memory data from the hook
+  const [cpuUsage, setCpuUsage] = useState(50);
+  const [gpuUsage, setGpuUsage] = useState(30);
+  const { memory, error: memoryError } = useMemoryData(); // Use the memory data from the hook
 
   useEffect(() => {
     const fetchUsageData = async () => {
       try {
         // Fetch CPU usage
-        const cpuResponse = await fetch("http://localhost:5000/cpu-usage")
-        const cpuData = await cpuResponse.json()
-        setCpuUsage(cpuData.usage || Math.floor(Math.random() * 101))
+        const cpuResponse = await fetch("http://localhost:5000/cpu-usage");
+        const cpuData = await cpuResponse.json();
+        setCpuUsage(cpuData.usage || Math.floor(Math.random() * 101));
 
         // Fetch GPU usage
-        const gpuResponse = await fetch("http://localhost:5000/gpu-usage")
-        const gpuData = await gpuResponse.json()
-        setGpuUsage(gpuData.usage || Math.floor(Math.random() * 101))
+        const gpuResponse = await fetch("http://localhost:5000/gpu-usage");
+        const gpuData = await gpuResponse.json();
+        setGpuUsage(gpuData.usage || Math.floor(Math.random() * 101));
       } catch (error) {
-        console.error("Error fetching usage data:", error)
+        console.error("Error fetching usage data:", error);
         // Fallback to random data if API fails
-        setCpuUsage(Math.floor(Math.random() * 101))
-        setGpuUsage(Math.floor(Math.random() * 101))
+        setCpuUsage(Math.floor(Math.random() * 101));
+        setGpuUsage(Math.floor(Math.random() * 101));
       }
-    }
+    };
 
-    fetchUsageData()
-    const interval = setInterval(fetchUsageData, 2000)
-    return () => clearInterval(interval)
-  }, [])
+    fetchUsageData();
+    const interval = setInterval(fetchUsageData, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="bg-black text-white min-vh-100">
@@ -310,7 +290,7 @@ const Home = () => {
           <div className="col-lg-4">
             <div className="row">
               <div className="col-12 mb-4">
-                <SystemSpecs />
+                <SystemSpecs /> {/* Updated SystemSpecs */}
               </div>
               <div className="col-12 mb-4">
                 <StorageInfo /> {/* Keep the StorageInfo component */}
@@ -323,7 +303,7 @@ const Home = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Home
+export default Home;

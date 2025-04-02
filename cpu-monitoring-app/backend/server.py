@@ -19,6 +19,7 @@ import subprocess
 from collections import deque
 from disk_info import get_disk_data
 from memory_info import get_memory_data
+from system_info import get_system_info_response
 
 app = FastAPI()
 print(app.routes)
@@ -30,6 +31,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/system-info")
+async def get_system_info():
+    """API endpoint to fetch system information."""
+    return get_system_info_response()
 
 @app.get("/api/memory")
 async def fetch_memory():
@@ -552,18 +558,7 @@ async def get_processes():
 
     return JSONResponse(content={"processes": processes})
 
-@app.get("/system-info")
-async def get_system_info():
-    uptime_seconds = time.time() - psutil.boot_time()
-    uptime_string = time.strftime("%H:%M:%S", time.gmtime(uptime_seconds))
 
-    return JSONResponse(content={
-        "os": platform.system(),
-        "os_version": platform.version(),
-        "hostname": platform.node(),
-        "architecture": platform.architecture()[0],
-        "uptime": uptime_string
-    })
 
 @app.get("/cpu-temperature")
 async def get_cpu_temperature():
