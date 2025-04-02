@@ -372,7 +372,7 @@ export const Network = () => {
               </div>
             </div>
 
-            <div className="card border-0 shadow-lg" style={{ backgroundColor: '#121212' }}>
+            {/* <div className="card border-0 shadow-lg" style={{ backgroundColor: '#121212' }}>
               <div className="card-body">
                 <h5 className="card-title mb-3" style={{ color: '#00FF00' }}>
                   <i className="fas fa-laptop-house me-2"></i>
@@ -426,7 +426,9 @@ export const Network = () => {
                   )}
                 </div>
               </div>
-            </div>
+            </div> */}
+
+            
           </div>
         </div>
 
