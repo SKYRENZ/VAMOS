@@ -31,12 +31,17 @@ const SystemSpecs = () => {
       <div className="card-body">
         <h5 className="card-title mb-3 text-center">System Specifications</h5>
         <ul className="list-group list-group-flush">
-          {systemInfo.cpu && (
-            <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-              <strong>CPU:</strong>
-              <span className="text-success">{systemInfo.cpu}</span>
-            </li>
-          )}
+        {systemInfo.cpu && (
+  <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
+    <strong>CPU:</strong>
+    <div className="text-success text-end d-flex flex-column">
+      {systemInfo.cpu.split("\n").map((line, index) => (
+        <span key={index}>{line}</span>
+      ))}
+    </div>
+  </li>
+)}
+
           {systemInfo.gpu && (
             <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
               <strong>GPU:</strong>
