@@ -204,25 +204,25 @@ const TemperatureBar = () => {
 const Home = () => {
   const [cpuUsage, setCpuUsage] = useState(50);
   const [gpuUsage, setGpuUsage] = useState(30);
-  const { memory, error: memoryError } = useMemoryData(); // Use the memory data from the hook
+  const { memory, error: memoryError } = useMemoryData();
 
   useEffect(() => {
     const fetchUsageData = async () => {
       try {
-        // Fetch CPU usage
+        // Fetch CPU usage (matches your backend response)
         const cpuResponse = await fetch("http://localhost:5000/cpu-usage");
         const cpuData = await cpuResponse.json();
-        setCpuUsage(cpuData.usage || Math.floor(Math.random() * 101));
+        setCpuUsage(cpuData.cpu_usage || 0);  // Changed from 'usage' to 'cpu_usage'
 
-        // Fetch GPU usage
+        // Fetch GPU usage (matches your backend response)
         const gpuResponse = await fetch("http://localhost:5000/gpu-usage");
         const gpuData = await gpuResponse.json();
-        setGpuUsage(gpuData.usage || Math.floor(Math.random() * 101));
+        // Handles both success and error cases from your backend
+        setGpuUsage(gpuData.gpu_usage_percent ?? 0); 
       } catch (error) {
         console.error("Error fetching usage data:", error);
-        // Fallback to random data if API fails
-        setCpuUsage(Math.floor(Math.random() * 101));
-        setGpuUsage(Math.floor(Math.random() * 101));
+        setCpuUsage(0);
+        setGpuUsage(0);
       }
     };
 
