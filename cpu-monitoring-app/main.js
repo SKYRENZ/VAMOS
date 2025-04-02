@@ -7,7 +7,9 @@ app.whenReady().then(() => {
     width: 1080,
     height: 800,
     webPreferences: {
-      nodeIntegration: true
+      nodeIntegration: true,
+      contextIsolation: false, // Ensure isolation is disabled if needed
+      zoomFactor: 1.0 // Prevent scaling issues
     }
   });
 
@@ -16,3 +18,7 @@ app.whenReady().then(() => {
   // Disable the default menu
   Menu.setApplicationMenu(null);
 });
+
+// Ensure DPI scaling is consistent
+app.commandLine.appendSwitch('high-dpi-support', '1');
+app.commandLine.appendSwitch('force-device-scale-factor', '1');

@@ -35,7 +35,30 @@
 }
 
 .card {
-  padding: 2em;
+  max-width: 100%;
+  margin: auto;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.list-group-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem;
+  border-bottom: 1px solid #444;
+}
+
+@media (max-width: 768px) {
+  .list-group-item {
+    flex-direction: column;
+    align-items: flex-start;
+    font-size: 0.9rem;
+  }
+
+  .list-group-item strong {
+    margin-bottom: 0.5rem;
+  }
 }
 
 .read-the-docs {
