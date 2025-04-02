@@ -8,6 +8,7 @@ import StorageInfo from "../components/StorageInfo" // Import the StorageInfo co
 import { UsageBar } from "../components/UsageBar";
 import useMemoryData from "../hooks/useMemoryData" // Import the custom hook for memory data
 import SystemSpecs from "../components/SystemSpecs"; 
+import useCPUStats from "../hooks/useCPUStats";
 
 const RADIAN = Math.PI / 180
 const cx = 150

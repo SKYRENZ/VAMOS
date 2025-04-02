@@ -533,7 +533,7 @@ async def get_all_data():
 # System Monitoring Endpoints
 @app.get("/cpu-usage")
 async def get_cpu_usage():
-    """More accurate CPU usage matching Task Manager"""
+    """Fetch CPU usage and additional CPU details"""
     try:
         # Get per-core usage for better accuracy
         per_cpu = psutil.cpu_percent(interval=1, percpu=True)
@@ -541,9 +541,23 @@ async def get_cpu_usage():
         avg_usage = sum(per_cpu) / len(per_cpu)
         # Adjust for Windows Task Manager's calculation method
         adjusted_usage = min(100, avg_usage * 1.05)  # 5% adjustment factor
-        return {"cpu_usage": round(adjusted_usage, 1)}
-    except Exception:
-        return {"cpu_usage": psutil.cpu_percent(interval=1)}
+
+        # Fetch additional CPU details
+        cpu_freq = psutil.cpu_freq()
+        base_speed = round(cpu_freq.max, 2) if cpu_freq else None  # Base speed in GHz
+        cores = psutil.cpu_count(logical=False)  # Physical cores
+        logical_processors = psutil.cpu_count(logical=True)  # Logical processors
+        sockets = 1  # psutil does not provide socket info; assuming 1 for most systems
+
+        return {
+            "cpu_usage": round(adjusted_usage, 1),
+            "base_speed_ghz": base_speed,
+            "sockets": sockets,
+            "cores": cores,
+            "logical_processors": logical_processors,
+        }
+    except Exception as e:
+        return {"error": f"An error occurred: {str(e)}"}
 
 def get_gpu_usage() -> Optional[float]:
     """
