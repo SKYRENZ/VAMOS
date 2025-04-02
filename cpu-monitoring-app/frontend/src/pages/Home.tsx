@@ -291,6 +291,12 @@ const Home = () => {
                     </li>
                     <li className="list-group-item bg-dark text-white border-secondary">
                       <div className="d-flex justify-content-between">
+                        <span>Used</span>
+                        <span>{(memory.used / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+                      </div>
+                    </li>
+                    <li className="list-group-item bg-dark text-white border-secondary">
+                      <div className="d-flex justify-content-between">
                         <span>Available</span>
                         <span>{(memory.available / 1024 / 1024 / 1024).toFixed(1)} GB</span>
                       </div>
