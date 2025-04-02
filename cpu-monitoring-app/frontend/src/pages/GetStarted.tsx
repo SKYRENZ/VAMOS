@@ -11,32 +11,40 @@ const GetStartedButton: React.FC = () => {
   const [showParticles, setShowParticles] = useState(false)
   const [showPulseWave, setShowPulseWave] = useState(false)
   const [showFinalFlash, setShowFinalFlash] = useState(false)
+  const [showTravelEffect, setShowTravelEffect] = useState(false)
+  const [travelComplete, setTravelComplete] = useState(false)
 
   const handleGetStarted = () => {
     setIsAnimating(true)
+    setShowTravelEffect(true)
 
-    // Animation sequence timeline
+    // First show the traveling effect
     setTimeout(() => {
-      setShowLogo(true) // Show logo after button fade out
+      setTravelComplete(true) // Mark travel effect as complete
 
+      // Then start the logo animation sequence
       setTimeout(() => {
-        setShowParticles(true) // Show particles after logo appears
+        setShowLogo(true) // Show logo after travel effect completes
 
         setTimeout(() => {
-          setShowPulseWave(true) // Show pulse wave in the middle of the animation
+          setShowParticles(true) // Show particles after logo appears
 
           setTimeout(() => {
-            setShowFinalFlash(true) // Show final flash effect before navigation
+            setShowPulseWave(true) // Show pulse wave in the middle of the animation
 
             setTimeout(() => {
-              window.location.href = "/home" // Navigate to home page after animations complete
-            }, 1000) // 1 second after final flash
-          }, 1500) // 1.5 seconds after pulse wave
-        }, 1500) // 1.5 seconds after particles
-      }, 500) // 0.5 seconds after logo appears
-    }, 600) // 0.6 seconds for button fade out
+              setShowFinalFlash(true) // Show final flash effect before navigation
 
-    // Total animation time: 0.6 + 0.5 + 1.5 + 1.5 + 1.0 = 5.1 seconds
+              setTimeout(() => {
+                window.location.href = "/home" // Navigate to home page after animations complete
+              }, 1000) // 1 second after final flash
+            }, 1500) // 1.5 seconds after pulse wave
+          }, 1500) // 1.5 seconds after particles
+        }, 500) // 0.5 seconds after logo appears
+      }, 300) // Short pause after travel effect completes
+    }, 1200) // Time for travel effect to complete
+
+    // Total animation time: 1.2 + 0.3 + 0.5 + 1.5 + 1.5 + 1.0 = 6.0 seconds
   }
 
   // Create particles dynamically
@@ -91,23 +99,60 @@ const GetStartedButton: React.FC = () => {
     return waves
   }
 
+  // Create travel effect elements
+  const renderTravelEffect = () => {
+    const elements = []
+    const count = 6 // Number of traveling elements
+
+    for (let i = 0; i < count; i++) {
+      const delay = i * 0.1 // Stagger the elements
+      const angle = (360 / count) * i // Distribute around a circle
+      const radians = angle * (Math.PI / 180)
+      const x = Math.cos(radians)
+      const y = Math.sin(radians)
+
+      elements.push(
+        <div
+          key={i}
+          className={`travel-element ${travelComplete ? "travel-complete" : ""}`}
+          style={
+            {
+              animationDelay: `${delay}s`,
+              "--travel-x": `${x * 100}vw`,
+              "--travel-y": `${y * 100}vh`,
+            } as React.CSSProperties
+          }
+        >
+          <div className="travel-element-inner"></div>
+        </div>,
+      )
+    }
+
+    return elements
+  }
+
   return (
     <div className="d-flex justify-content-center align-items-center vh-100 bg-black">
       {!showLogo ? (
-        <button
-          onClick={handleGetStarted}
-          className={`position-relative overflow-hidden px-5 py-3 fw-bold text-black rounded transition-all ${
-            isAnimating ? "button-fade-out" : ""
-          }`}
-          style={{ fontSize: "1.75rem", backgroundColor: "#00FF00", border: "none" }}
-          disabled={isAnimating}
-        >
-          Get Started
-          <span
-            className="position-absolute top-0 start-0 w-0 h-100 bg-white opacity-25 transition-all"
-            style={{ transition: "width 0.3s" }}
-          ></span>
-        </button>
+        <div className="button-container">
+          <button
+            onClick={handleGetStarted}
+            className={`position-relative overflow-hidden px-5 py-3 fw-bold text-black rounded transition-all ${
+              isAnimating ? "button-fade-out" : ""
+            }`}
+            style={{ fontSize: "1.75rem", backgroundColor: "#00FF00", border: "none" }}
+            disabled={isAnimating}
+          >
+            Get Started
+            <span
+              className="position-absolute top-0 start-0 w-0 h-100 bg-white opacity-25 transition-all"
+              style={{ transition: "width 0.3s" }}
+            ></span>
+          </button>
+
+          {/* Travel effect container */}
+          {showTravelEffect && <div className="travel-effect-container">{renderTravelEffect()}</div>}
+        </div>
       ) : (
         <div className="logo-container">
           {/* Main logo */}

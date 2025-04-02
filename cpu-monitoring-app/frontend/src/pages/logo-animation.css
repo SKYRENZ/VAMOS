@@ -1,5 +1,13 @@
-/* Button fade out animation */
-.button-fade-out {
+/* Button container */
+.button-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  /* Button fade out animation */
+  .button-fade-out {
     animation: fadeOut 0.6s forwards;
     pointer-events: none;
   }
@@ -293,6 +301,115 @@
     }
     100% {
       transform: scale(1);
+    }
+  }
+  
+  /* Travel effect container */
+  .travel-effect-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 20;
+    pointer-events: none;
+  }
+  
+  /* Travel element */
+  .travel-element {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    animation: travelOut 1.2s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+  }
+  
+  .travel-element-inner {
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(0, 255, 0, 1) 0%, rgba(0, 255, 0, 0.7) 50%, rgba(0, 255, 0, 0) 100%);
+    border-radius: 50%;
+    position: relative;
+    animation: pulseTravel 0.5s ease-in-out infinite alternate;
+  }
+  
+  .travel-element-inner::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60%;
+    height: 60%;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    filter: blur(3px);
+  }
+  
+  .travel-element-inner::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    box-shadow: 0 0 20px 5px rgba(0, 255, 0, 0.7);
+  }
+  
+  @keyframes travelOut {
+    0% {
+      transform: translate(-50%, -50%) scale(0.2);
+      opacity: 0;
+    }
+    10% {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(calc(-50% + var(--travel-x, 100vw)), calc(-50% + var(--travel-y, 100vh))) scale(0.5);
+      opacity: 0;
+    }
+  }
+  
+  @keyframes pulseTravel {
+    0% {
+      transform: scale(0.8);
+      box-shadow: 0 0 10px 2px rgba(0, 255, 0, 0.7);
+    }
+    100% {
+      transform: scale(1.2);
+      box-shadow: 0 0 20px 5px rgba(0, 255, 0, 0.9);
+    }
+  }
+  
+  /* Trail effect for travel elements */
+  .travel-element::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, rgba(0, 255, 0, 0.7), rgba(0, 255, 0, 0));
+    transform-origin: left center;
+    transform: scaleX(5) translateX(-20%);
+    opacity: 0.5;
+    filter: blur(10px);
+    border-radius: 50%;
+    z-index: -1;
+    animation: fadeTrail 1.2s forwards;
+  }
+  
+  @keyframes fadeTrail {
+    0% {
+      opacity: 0;
+    }
+    20% {
+      opacity: 0.5;
+    }
+    100% {
+      opacity: 0;
     }
   }
   
