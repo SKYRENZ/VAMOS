@@ -1,0 +1,299 @@
+/* Button fade out animation */
+.button-fade-out {
+    animation: fadeOut 0.6s forwards;
+    pointer-events: none;
+  }
+  
+  @keyframes fadeOut {
+    0% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+  }
+  
+  /* Logo container */
+  .logo-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    animation: fadeIn 0.8s forwards;
+  }
+  
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  /* Logo wrapper */
+  .logo-wrapper {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.5s ease;
+  }
+  
+  /* Main logo */
+  .logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    position: relative;
+    z-index: 10;
+    filter: drop-shadow(0 0 10px rgba(0, 255, 0, 0.7));
+    transition: all 0.5s ease;
+  }
+  
+  /* Rotation animation */
+  .rotating {
+    animation: rotate 8s linear infinite;
+  }
+  
+  @keyframes rotate {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* Glow effects */
+  .glow-effect {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 255, 0, 0.6) 0%, rgba(0, 255, 0, 0) 70%);
+    z-index: 5;
+  }
+  
+  .glow-1 {
+    width: 140%;
+    height: 140%;
+    opacity: 0.3;
+    animation: pulse 2s ease-in-out infinite alternate;
+  }
+  
+  .glow-2 {
+    width: 160%;
+    height: 160%;
+    opacity: 0.2;
+    animation: pulse 3s ease-in-out infinite alternate;
+  }
+  
+  .glow-3 {
+    width: 180%;
+    height: 180%;
+    opacity: 0.1;
+    animation: pulse 4s ease-in-out infinite alternate;
+  }
+  
+  @keyframes pulse {
+    0% {
+      transform: scale(0.9);
+      opacity: 0.2;
+    }
+    100% {
+      transform: scale(1.1);
+      opacity: 0.4;
+    }
+  }
+  
+  /* Rotating ring */
+  .rotating-ring {
+    position: absolute;
+    width: 180%;
+    height: 180%;
+    border: 3px dashed rgba(0, 255, 0, 0.6);
+    border-radius: 50%;
+    animation: rotateRing 12s linear infinite;
+    transition: all 0.5s ease;
+  }
+  
+  .rotating-ring.speed-up {
+    animation: rotateRing 3s linear infinite;
+    border-color: rgba(0, 255, 0, 0.9);
+  }
+  
+  @keyframes rotateRing {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(-360deg);
+    }
+  }
+  
+  /* Pulsing ring */
+  .pulse-ring {
+    position: absolute;
+    width: 120%;
+    height: 120%;
+    border: 4px solid rgba(0, 255, 0, 0.4);
+    border-radius: 50%;
+    animation: pulseRing 2s ease-out infinite;
+  }
+  
+  @keyframes pulseRing {
+    0% {
+      transform: scale(0.8);
+      opacity: 0.8;
+    }
+    100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+  
+  /* Particles */
+  .particles-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+  
+  .particle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    background-color: rgba(0, 255, 0, 0.7);
+    border-radius: 50%;
+    animation: particleFloat 3s ease-out infinite;
+  }
+  
+  @keyframes particleFloat {
+    0% {
+      opacity: 0;
+      transform: translate(0, 0) scale(0);
+    }
+    20% {
+      opacity: 1;
+      transform: translate(var(--x, 0), var(--y, 0)) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(calc(var(--x, 0) * 2), calc(var(--y, 0) * 2)) scale(0);
+    }
+  }
+  
+  /* Add a hover effect to the button */
+  button:hover:not(:disabled) {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.7);
+    transition: all 0.3s ease;
+  }
+  
+  /* Add a click effect to the button */
+  button:active:not(:disabled) {
+    transform: scale(0.98);
+    transition: all 0.1s ease;
+  }
+  
+  /* Pulse waves */
+  .pulse-waves-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+  }
+  
+  .pulse-wave {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 255, 0, 0.7) 0%, rgba(0, 255, 0, 0) 70%);
+    opacity: 0;
+    animation: pulseWave 2s ease-out forwards;
+  }
+  
+  @keyframes pulseWave {
+    0% {
+      transform: translate(-50%, -50%) scale(0.1);
+      opacity: 0.8;
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(3);
+      opacity: 0;
+    }
+  }
+  
+  /* Final flash effect */
+  .final-flash-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 255, 0, 0.3);
+    z-index: 20;
+    animation: flashFade 1s ease-out forwards;
+    border-radius: 50%;
+  }
+  
+  @keyframes flashFade {
+    0% {
+      opacity: 0;
+      transform: scale(0.1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.5);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(3);
+    }
+  }
+  
+  .final-flash .glow-effect {
+    animation: intensifyGlow 1s ease-out forwards !important;
+  }
+  
+  @keyframes intensifyGlow {
+    0% {
+      opacity: 0.3;
+    }
+    50% {
+      opacity: 0.8;
+    }
+    100% {
+      opacity: 0.1;
+    }
+  }
+  
+  .final-zoom {
+    animation: zoomPulse 1s ease-in-out infinite !important;
+  }
+  
+  @keyframes zoomPulse {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  
+  
