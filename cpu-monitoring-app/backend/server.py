@@ -24,6 +24,7 @@ from collections import deque
 from disk_info import get_disk_data
 from memory_info import get_memory_data
 from system_info import get_system_info_response
+import batteryinfo
 
 app = FastAPI()
 print(app.routes)
@@ -779,3 +780,9 @@ async def get_gpu_stats_endpoint():
 
 
 
+
+
+
+@app.get("/battery")
+def battery_status():
+    return JSONResponse(content=batteryinfo.get_battery_info())
