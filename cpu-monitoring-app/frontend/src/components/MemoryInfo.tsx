@@ -22,25 +22,25 @@ const MemoryInfo = () => {
           <li className="list-group-item bg-dark text-white border-secondary">
             <div className="d-flex justify-content-between">
               <span>Total</span>
-              <span>{(total / 1024).toFixed(1)} GB</span>
+              <span>{(total / 1024 / 1024 / 1024).toFixed(1)} GB</span>
             </div>
           </li>
           <li className="list-group-item bg-dark text-white border-secondary">
             <div className="d-flex justify-content-between">
               <span>Used</span>
-              <span>{(used / 1024).toFixed(1)} GB</span>
+              <span>{(used / 1024 / 1024 / 1024).toFixed(1)} GB</span>
             </div>
           </li>
           <li className="list-group-item bg-dark text-white border-secondary">
             <div className="d-flex justify-content-between">
               <span>Available</span>
-              <span>{(available / 1024).toFixed(1)} GB</span>
+              <span>{(available / 1024 / 1024 / 1024).toFixed(1)} GB</span>
             </div>
           </li>
           <li className="list-group-item bg-dark text-white border-secondary">
             <div className="d-flex justify-content-between">
               <span>Cached</span>
-              <span>{(cached / 1024).toFixed(1)} GB</span>
+              <span>{(cached / 1024 / 1024 / 1024).toFixed(1)} GB</span>
             </div>
           </li>
         </ul>

@@ -8,6 +8,7 @@ import StorageInfo from "../components/StorageInfo" // Import the StorageInfo co
 import { UsageBar } from "../components/UsageBar";
 import useMemoryData from "../hooks/useMemoryData" // Import the custom hook for memory data
 import SystemSpecs from "../components/SystemSpecs"; 
+import useCPUStats from "../hooks/useCPUStats";
 
 
 const RADIAN = Math.PI / 180
@@ -66,7 +67,7 @@ interface GaugeChartProps {
 }
 
 const GaugeChart = ({ title, value }: GaugeChartProps) => (
-  <div className="card bg-dark text-white mb-4 gauge-card">
+  <div className="card bg-dark text-white mb-4 gauge-card" >
     <div className="card-body text-center">
       <h5 className="card-title">{title}</h5>
       <div className="gauge-chart">
@@ -77,7 +78,7 @@ const GaugeChart = ({ title, value }: GaugeChartProps) => (
             endAngle={0}
             data={generateData()}
             cx={cx}
-            cy={cy}
+            cy={cy +10}
             innerRadius={iR}
             outerRadius={oR}
             stroke="none"
@@ -86,11 +87,11 @@ const GaugeChart = ({ title, value }: GaugeChartProps) => (
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Pie>
-          {needle(value, cx, cy, iR, oR, "#00ff00")}
-          <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle" className="gauge-value">
+          {needle(value, cx, cy +10 , iR, oR, "#00ff00")}
+          <text x={cx} y={cy +50} textAnchor="middle" dominantBaseline="middle" className="gauge-value">
             {value}
           </text>
-          <text x={cx} y={cy + 30} textAnchor="middle" dominantBaseline="middle" className="gauge-percent">
+          <text x={cx} y={cy + 75} textAnchor="middle" dominantBaseline="middle" className="gauge-percent">
             %
           </text>
         </PieChart>
@@ -288,6 +289,12 @@ const Home = () => {
                       <div className="d-flex justify-content-between">
                         <span>Total</span>
                         <span>{(memory.total / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+                      </div>
+                    </li>
+                    <li className="list-group-item bg-dark text-white border-secondary">
+                      <div className="d-flex justify-content-between">
+                        <span>Used</span>
+                        <span>{(memory.used / 1024 / 1024 / 1024).toFixed(1)} GB</span>
                       </div>
                     </li>
                     <li className="list-group-item bg-dark text-white border-secondary">
