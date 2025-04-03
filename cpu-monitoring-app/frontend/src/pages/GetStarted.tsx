@@ -4,6 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "./logo-animation.css"
+import Logo from "../assets/Logo.png" // Import the logo image
 
 const GetStartedButton: React.FC = () => {
   const [isAnimating, setIsAnimating] = useState(false)
@@ -13,41 +14,43 @@ const GetStartedButton: React.FC = () => {
   const [showFinalFlash, setShowFinalFlash] = useState(false)
   const [showTravelEffect, setShowTravelEffect] = useState(false)
   const [travelComplete, setTravelComplete] = useState(false)
+  const [showBorderGlow, setShowBorderGlow] = useState(false)
+  const [initialLogoFading, setInitialLogoFading] = useState(false)
 
   const handleGetStarted = () => {
     setIsAnimating(true)
-    setShowTravelEffect(true)
+    setInitialLogoFading(true) // Start fading the initial logo
+    setShowBorderGlow(true) // Show the border glow effect
 
-    // First show the traveling effect
     setTimeout(() => {
-      setTravelComplete(true) // Mark travel effect as complete
+      setShowTravelEffect(true)
 
-      // Then start the logo animation sequence
       setTimeout(() => {
-        setShowLogo(true) // Show logo after travel effect completes
+        setTravelComplete(true) // Mark travel effect as complete
 
         setTimeout(() => {
-          setShowParticles(true) // Show particles after logo appears
+          setShowLogo(true) // Show logo after travel effect completes
 
           setTimeout(() => {
-            setShowPulseWave(true) // Show pulse wave in the middle of the animation
+            setShowParticles(true) // Show particles after logo appears
 
             setTimeout(() => {
-              setShowFinalFlash(true) // Show final flash effect before navigation
+              setShowPulseWave(true) // Show pulse wave in the middle of the animation
 
               setTimeout(() => {
-                window.location.href = "/home" // Navigate to home page after animations complete
-              }, 1000) // 1 second after final flash
-            }, 1500) // 1.5 seconds after pulse wave
-          }, 1500) // 1.5 seconds after particles
-        }, 500) // 0.5 seconds after logo appears
-      }, 300) // Short pause after travel effect completes
-    }, 1200) // Time for travel effect to complete
+                setShowFinalFlash(true) // Show final flash effect before navigation
 
-    // Total animation time: 1.2 + 0.3 + 0.5 + 1.5 + 1.5 + 1.0 = 6.0 seconds
+                setTimeout(() => {
+                  window.location.href = "/home"
+                }, 1000)
+              }, 1500)
+            }, 1500)
+          }, 500)
+        }, 300)
+      }, 1200)
+    }, 500) // Added delay to allow initial logo to fade
   }
 
-  // Create particles dynamically
   const renderParticles = () => {
     const particles = []
     const particleCount = 30
@@ -63,13 +66,17 @@ const GetStartedButton: React.FC = () => {
         <div
           key={i}
           className="particle"
-          style={{
-            width: `${size}px`,
-            height: `${size}px`,
-            animationDelay: `${delay}s`,
-            animationDuration: `${duration}s`,
-            transform: `translate(${x}px, ${y}px)`,
-          }}
+          style={
+            {
+              width: `${size}px`,
+              height: `${size}px`,
+              animationDelay: `${delay}s`,
+              animationDuration: `${duration}s`,
+              transform: `translate(${x}px, ${y}px)`,
+              "--x": `${x}px`,
+              "--y": `${y}px`,
+            } as React.CSSProperties
+          }
         />,
       )
     }
@@ -133,25 +140,37 @@ const GetStartedButton: React.FC = () => {
 
   return (
     <div className="d-flex justify-content-center align-items-center vh-100 bg-black">
+      {/* Border glow effect */}
+      {showBorderGlow && <div className="page-border-glow"></div>}
+
       {!showLogo ? (
         <div className="button-container">
-          <button
-            onClick={handleGetStarted}
-            className={`position-relative overflow-hidden px-5 py-3 fw-bold text-black rounded transition-all ${
-              isAnimating ? "button-fade-out" : ""
-            }`}
-            style={{ fontSize: "1.75rem", backgroundColor: "#00FF00", border: "none" }}
-            disabled={isAnimating}
-          >
-            Get Started
-            <span
-              className="position-absolute top-0 start-0 w-0 h-100 bg-white opacity-25 transition-all"
-              style={{ transition: "width 0.3s" }}
-            ></span>
-          </button>
+          {/* Use flex-column to stack items vertically */}
+          <div className="d-flex flex-column align-items-center">
+            <img
+              src={Logo || "/placeholder.svg"}
+              id="logo"
+              className={initialLogoFading ? "initial-logo-fade" : ""}
+              style={{ height: "200px", width: "350px", marginBottom: "20px" }} // Add margin for spacing
+            />
+            <button
+              onClick={handleGetStarted}
+              className={`position-relative overflow-hidden px-5 py-3 fw-bold text-black rounded transition-all ${
+                isAnimating ? "button-fade-out" : ""
+              }`}
+              style={{ fontSize: "1.75rem", backgroundColor: "#00FF00", border: "none" }}
+              disabled={isAnimating}
+            >
+              Get Started
+              <span
+                className="position-absolute top-0 start-0 w-0 h-100 bg-white opacity-25 transition-all"
+                style={{ transition: "width 0.3s" }}
+              ></span>
+            </button>
 
-          {/* Travel effect container */}
-          {showTravelEffect && <div className="travel-effect-container">{renderTravelEffect()}</div>}
+            {/* Travel effect container */}
+            {showTravelEffect && <div className="travel-effect-container">{renderTravelEffect()}</div>}
+          </div>
         </div>
       ) : (
         <div className="logo-container">

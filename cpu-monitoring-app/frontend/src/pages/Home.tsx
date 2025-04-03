@@ -9,6 +9,7 @@ import { UsageBar } from "../components/UsageBar";
 import useMemoryData from "../hooks/useMemoryData" // Import the custom hook for memory data
 import SystemSpecs from "../components/SystemSpecs"; 
 
+
 const RADIAN = Math.PI / 180
 const cx = 150
 const cy = 150
