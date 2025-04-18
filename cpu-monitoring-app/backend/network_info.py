@@ -212,24 +212,59 @@ def calculate_stability_score(ping, jitter, packet_loss):
     return stability
 
 def get_packet_loss():
-    """Measure packet loss to Google's DNS"""
+    """Measure packet loss more accurately using multiple servers and more packets"""
     try:
-        param = "-n" if platform.system().lower() == "windows" else "-c"
-        command = ["ping", param, "10", "8.8.8.8"]
-        output = subprocess.check_output(command).decode()
+        # Test servers to check (mix of reliable servers)
+        test_servers = [
+            "8.8.8.8",      # Google DNS
+            "1.1.1.1",      # Cloudflare DNS
+            "208.67.222.222"  # OpenDNS
+        ]
         
-        if platform.system().lower() == "windows":
-            match = re.search(r"Lost = (\d+) \((\d+)%", output)
-            if match:
-                return int(match.group(2))
-        else:
-            match = re.search(r"(\d+)% packet loss", output)
-            if match:
-                return int(match.group(1))
-        return 0
-    except:
-        # Return 0 instead of random values
-        return 0
+        total_sent = 0
+        total_lost = 0
+        
+        for server in test_servers:
+            try:
+                # Send more packets (20 per server) for better accuracy
+                param = "-n" if platform.system().lower() == "windows" else "-c"
+                command = ["ping", param, "20", server, "-w", "1000"]  # 1 second timeout
+                output = subprocess.check_output(command, stderr=subprocess.DEVNULL).decode()
+                
+                if platform.system().lower() == "windows":
+                    # Windows format: "Packets: Sent = X, Received = Y, Lost = Z (W% loss)"
+                    sent_match = re.search(r"Sent = (\d+)", output)
+                    received_match = re.search(r"Received = (\d+)", output)
+                    if sent_match and received_match:
+                        sent = int(sent_match.group(1))
+                        received = int(received_match.group(1))
+                        total_sent += sent
+                        total_lost += (sent - received)
+                else:
+                    # Linux/Mac format: "X packets transmitted, Y received, Z% packet loss"
+                    match = re.search(r"(\d+) packets transmitted, (\d+) received", output)
+                    if match:
+                        sent = int(match.group(1))
+                        received = int(match.group(2))
+                        total_sent += sent
+                        total_lost += (sent - received)
+            
+            except subprocess.CalledProcessError:
+                # If this server fails completely, count all packets as lost
+                total_sent += 20
+                total_lost += 20
+                continue
+        
+        if total_sent > 0:
+            # Calculate loss percentage with 2 decimal precision
+            loss_percentage = (total_lost / total_sent) * 100
+            return round(loss_percentage, 2)
+        
+        return 0.00
+        
+    except Exception as e:
+        logging.error(f"Packet loss calculation error: {e}")
+        return 0.00
 
 def get_dns_server():
     """Get the DNS server"""
@@ -550,24 +585,29 @@ def update_network_data():
     """Update all network data"""
     try:
         # Get network interfaces for bandwidth measurement
-        net_io = psutil.net_io_counters()
+        net_io = psutil.net_io_counters(pernic=True)  # Get per-interface counters
         
         # Calculate current speeds
         time.sleep(1)  # Wait 1 second to measure
-        net_io_after = psutil.net_io_counters()
+        net_io_after = psutil.net_io_counters(pernic=True)
         
-        # Check if we have speed test data available
-        download_speed = 0
-        upload_speed = 0
+        # Sum up all interface speeds
+        total_bytes_sent = 0
+        total_bytes_recv = 0
         
-        if network_cache["speed_test"] is not None and "error" not in network_cache["speed_test"]:
-            # Use speed test data instead of real-time measurements
-            download_speed = network_cache["speed_test"]["download"]
-            upload_speed = network_cache["speed_test"]["upload"]
-        else:
-            # Fall back to real-time measurements if no speed test data
-            download_speed = (net_io_after.bytes_recv - net_io.bytes_recv) * 8 / 1_000_000  # Mbps
-            upload_speed = (net_io_after.bytes_sent - net_io.bytes_sent) * 8 / 1_000_000  # Mbps
+        for interface, counters in net_io_after.items():
+            if interface in net_io:  # Make sure we have before/after data
+                bytes_sent = counters.bytes_sent - net_io[interface].bytes_sent
+                bytes_recv = counters.bytes_recv - net_io[interface].bytes_recv
+                
+                if bytes_sent >= 0:  # Avoid negative values from counter wraparound
+                    total_bytes_sent += bytes_sent
+                if bytes_recv >= 0:
+                    total_bytes_recv += bytes_recv
+        
+        # Convert to Mbps
+        download_speed = total_bytes_recv * 8 / 1_000_000  # Mbps
+        upload_speed = total_bytes_sent * 8 / 1_000_000  # Mbps
         
         # Get hostname and IP
         hostname = socket.gethostname()
@@ -594,8 +634,8 @@ def update_network_data():
         network_cache["network_data"] = {
             "connectionType": get_connection_type(),
             "signalStrength": get_signal_strength(),
-            "downloadSpeed": round(download_speed, 1),
-            "uploadSpeed": round(upload_speed, 1),
+            "downloadSpeed": round(download_speed, 2),  # Increased precision
+            "uploadSpeed": round(upload_speed, 2),
             "ping": current_ping,
             "jitter": jitter,
             "packetLoss": packet_loss,
@@ -605,13 +645,13 @@ def update_network_data():
             "macAddress": get_mac_address()
         }
         
-        # Add to bandwidth history only if first speed test completed
-        if network_cache["first_speed_test_completed"]:
-            bandwidth_history.append({
-                "timestamp": datetime.now().isoformat(),
-                "download": round(download_speed, 1),
-                "upload": round(upload_speed, 1)
-            })
+        # Always add to bandwidth history, even for small values
+        bandwidth_history.append({
+            "timestamp": datetime.now().isoformat(),
+            "download": round(download_speed, 2),
+            "upload": round(upload_speed, 2),
+            "isSpeedTest": False
+        })
         
         # Update Network IO data
         network_cache["io_data"] = get_network_io()
@@ -619,9 +659,12 @@ def update_network_data():
         network_cache["connected_devices"] = scan_network()
         network_cache["last_updated"] = datetime.now().isoformat()
         
-        print("Network data updated")
+        print(f"Network data updated - Download: {download_speed:.2f} Mbps, Upload: {upload_speed:.2f} Mbps")
     except Exception as e:
         logging.error(f"Update error: {e}")
+        # Log the full traceback for debugging
+        import traceback
+        logging.error(traceback.format_exc())
 
 def get_network_data():
     """Get all network data"""
@@ -631,11 +674,23 @@ def get_network_data():
 
 def get_speed_test_data():
     """Run a speed test and return results"""
-    network_cache["speed_test"] = run_speed_test()
-    # Set flag when speed test completes successfully
-    if network_cache["speed_test"] and "error" not in network_cache["speed_test"]:
+    # Always run a fresh speed test
+    fresh_results = run_speed_test()
+    
+    # Only update cache if the test was successful
+    if fresh_results and "error" not in fresh_results:
+        network_cache["speed_test"] = fresh_results
         network_cache["first_speed_test_completed"] = True
-    return network_cache["speed_test"]
+        
+        # Add speed test results to bandwidth history
+        bandwidth_history.append({
+            "timestamp": datetime.now().isoformat(),
+            "download": fresh_results["download"],
+            "upload": fresh_results["upload"],
+            "isSpeedTest": True  # Mark this as a speed test result
+        })
+    
+    return fresh_results
 
 def get_connected_devices():
     """Get connected devices on the network"""

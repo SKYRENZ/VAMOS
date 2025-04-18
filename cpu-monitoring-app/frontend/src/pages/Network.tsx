@@ -366,15 +366,159 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
             marginBottom: '2rem',
             position: 'relative'
           }}>
-            <div className="d-flex justify-content-center align-items-center">
+            <div className="d-flex justify-content-between align-items-center">
               <h1 style={{
                 color: '#ffff',
                 fontWeight: 'bold',
                 margin: 0,
                 fontSize: '1.5rem',
-                letterSpacing: '0.05em',
-                textAlign: 'center'
+                letterSpacing: '0.05em'
               }}>NETWORK MONITOR</h1>
+
+              <div className="dropdown">
+                <button
+                  className="btn dropdown-toggle"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  data-bs-auto-close="true"
+                  aria-expanded="false"
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: '1px solid #00FF00',
+                    color: '#00FF00',
+                    padding: '0.5rem 1rem',
+                    minWidth: '140px',
+                    transition: 'all 0.3s ease',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  <i className="fas fa-download me-2"></i>
+                  Export Data
+                </button>
+                <ul className="dropdown-menu dropdown-menu-end" style={{
+                  backgroundColor: '#1a1a1a',
+                  border: '1px solid #333',
+                  minWidth: '200px'
+                }}>
+                  <li>
+                    <button
+                      className="dropdown-item d-flex align-items-center"
+                      onClick={async () => {
+                        if (contentRef.current) {
+                          const canvas = await html2canvas(contentRef.current);
+                          const link = document.createElement('a');
+                          link.download = `network-monitor-${new Date().toISOString().split('T')[0]}.jpg`;
+                          link.href = canvas.toDataURL('image/jpeg');
+                          link.click();
+                        }
+                      }}
+                      style={{
+                        color: '#CCCCCC',
+                        padding: '0.5rem 1rem',
+                        transition: 'all 0.3s ease',
+                        cursor: 'pointer'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                        e.currentTarget.style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
+                        e.currentTarget.style.color = '#00FF00';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = '#CCCCCC';
+                      }}
+                    >
+                      <i className="fas fa-image me-2"></i>
+                      Export as JPG
+                    </button>
+                  </li>
+                  <li><hr className="dropdown-divider" style={{ borderColor: '#333' }} /></li>
+                  <li>
+                    <button
+                      className="dropdown-item d-flex align-items-center"
+                      onClick={async () => {
+                        if (contentRef.current) {
+                          const canvas = await html2canvas(contentRef.current);
+                          const pdf = new jsPDF('p', 'mm', 'a4');
+                          const imgData = canvas.toDataURL('image/jpeg');
+                          const width = pdf.internal.pageSize.getWidth();
+                          const height = (canvas.height * width) / canvas.width;
+                          pdf.addImage(imgData, 'JPEG', 0, 0, width, height);
+                          pdf.save(`network-monitor-${new Date().toISOString().split('T')[0]}.pdf`);
+                        }
+                      }}
+                      style={{
+                        color: '#CCCCCC',
+                        padding: '0.5rem 1rem',
+                        transition: 'all 0.3s ease',
+                        cursor: 'pointer'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                        e.currentTarget.style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
+                        e.currentTarget.style.color = '#00FF00';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = '#CCCCCC';
+                      }}
+                    >
+                      <i className="fas fa-file-pdf me-2"></i>
+                      Export as PDF
+                    </button>
+                  </li>
+                  <li><hr className="dropdown-divider" style={{ borderColor: '#333' }} /></li>
+                  <li>
+                    <button
+                      className="dropdown-item d-flex align-items-center"
+                      onClick={() => {
+                        const data = {
+                          networkData,
+                          speedTest: networkState.speedTestData,
+                          ioData,
+                          bandwidthHistory,
+                          lastUpdated: lastUpdated?.toISOString()
+                        };
+                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = `network-monitor-${new Date().toISOString().split('T')[0]}.json`;
+                        link.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      style={{
+                        color: '#CCCCCC',
+                        padding: '0.5rem 1rem',
+                        transition: 'all 0.3s ease',
+                        cursor: 'pointer'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'scale(1.02)';
+                        e.currentTarget.style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
+                        e.currentTarget.style.color = '#00FF00';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = '#CCCCCC';
+                      }}
+                    >
+                      <i className="fas fa-file-code me-2"></i>
+                      Export as JSON
+                    </button>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
 
@@ -395,9 +539,13 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                       <i className="fas fa-tachometer-alt me-2"></i>
                       Speed Test
                       {!networkState.speedTestCompleted && (
-                        <small style={{ color: '#CCCCCC', fontSize: '0.8rem', marginLeft: '10px' }}>
-                          Run a speed test to see all network data
-                        </small>
+                        <div style={{ color: '#CCCCCC', fontSize: '0.9rem', marginTop: '10px' }}>
+                          <p style={{ fontSize: '0.8rem', marginTop: '5px' }}>
+                            <i className="fas fa-info-circle me-1"></i>
+                            Run a speed test to see your network performance data
+
+                          </p>
+                        </div>
                       )}
                     </h5>
 
@@ -463,7 +611,7 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
 
               {networkState.speedTestCompleted && (
                 <>
-                  <div className="col-lg-6 px-3 fade-in delay-1"> {/* Added fade-in animation */}
+                  <div className="col-lg-6 px-3 fade-in delay-1">
                     <div className="card border-0 shadow-lg h-100" style={{ backgroundColor: '#121212' }}>
                       <div className="card-body">
                         <h5 className="card-title mb-3" style={{ color: '#00FF00' }}>
@@ -482,7 +630,7 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                     </div>
                   </div>
 
-                  <div className="col-lg-6 px-3 fade-in delay-2"> {/* Added fade-in animation */}
+                  <div className="col-lg-6 px-3 fade-in delay-2">
                     <div className="card border-0 shadow-lg h-100" style={{ backgroundColor: '#121212' }}>
                       <div className="card-body">
                         <h5 className="card-title mb-3" style={{ color: '#00FF00' }}>
@@ -580,23 +728,17 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                     </div>
                   </div>
 
-                  <div className="col-12 px-3 fade-in delay-3"> {/* Added fade-in animation */}
+                  <div className="col-12 px-3 fade-in delay-3">
                     <div className="card border-0 shadow-lg" style={{ backgroundColor: '#121212' }}>
                       {ioData && (
                         <IOMonitor
-                          uploadSpeed={ioData.uploadSpeed}
-                          downloadSpeed={ioData.downloadSpeed}
-                          uploadPackets={ioData.uploadPackets}
-                          downloadPackets={ioData.downloadPackets}
                           activeInterfaces={ioData.activeInterfaces}
-                          bytesSent={ioData.bytesSent}
-                          bytesReceived={ioData.bytesReceived}
                         />
                       )}
                     </div>
                   </div>
 
-                  <div className="col-12 px-3 fade-in delay-3"> {/* Added fade-in animation */}
+                  <div className="col-12 px-3 fade-in delay-3">
                     <div className="card border-0 shadow-lg" style={{ backgroundColor: '#121212' }}>
                       <div className="card-body">
                         <div className="d-flex justify-content-between align-items-center mb-3">

@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Home from './pages/Home';
 import Battery from './pages/Battery';
 import Network from './pages/Network';
@@ -20,7 +20,7 @@ interface SpeedTestResult {
 }
 
 const AppContent = () => {
-    const location = useLocation(); // Get the current route
+    const location = useLocation();
     const [networkState, setNetworkState] = useState<{
         speedTestCompleted: boolean;
         speedTestData: SpeedTestResult | null;
@@ -28,6 +28,14 @@ const AppContent = () => {
         speedTestCompleted: false,
         speedTestData: null
     });
+
+    // Reset network state when app starts
+    useEffect(() => {
+        setNetworkState({
+            speedTestCompleted: false,
+            speedTestData: null
+        });
+    }, []);
 
     return (
         <div className="flex flex-col min-h-screen">
@@ -37,12 +45,7 @@ const AppContent = () => {
                     <Route path="/" element={<GetStarted />} /> {/* Default page */}
                     <Route path="/home" element={<Home />} />
                     <Route path="/battery" element={<Battery />} />
-                    <Route path="/network" element={
-                        <Network
-                            networkState={networkState}
-                            setNetworkState={setNetworkState}
-                        />
-                    } />
+                    <Route path="/network" element={<Network networkState={networkState} setNetworkState={setNetworkState} />} />
                 </Routes>
             </div>
 
