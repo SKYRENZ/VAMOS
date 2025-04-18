@@ -369,18 +369,15 @@ def run_speed_test():
     try:
         # Initialize speedtest with shorter timeout
         st = speedtest.Speedtest(secure=True)
-        st.timeout = 15  # Reduced timeout to 15 seconds
+        st.timeout = 10  # Reduced timeout even further
         
-        # Get list of servers and find closest ones
-        print("Getting server list...")
-        servers = st.get_servers()
-        print("Finding best server...")
+        # Get list of servers and find closest ones - print less for faster performance
+        print("Getting server list and finding best server...")
         best_server = st.get_best_server()
         
         # Configuration for faster testing
-        THREADS = 4  # Keep threads for accuracy
-        SAMPLES = 1  # Single sample for speed
-        DELAY = 0.1  # Minimal delay
+        THREADS = 3  # Reduce threads for faster testing
+        DELAY = 0.05  # Minimal delay
         
         # Measure download with consistent settings
         print("Testing download speed...")
@@ -405,7 +402,7 @@ def run_speed_test():
             
         # Apply correction factors to account for overhead and protocol inefficiencies
         DOWNLOAD_OVERHEAD = 0.85  # 15% reduction for network overhead
-        UPLOAD_OVERHEAD = 0.80  # 20% reduction for upload overhead (reduced from 55%)
+        UPLOAD_OVERHEAD = 0.80  # 20% reduction for upload overhead
         download = download * DOWNLOAD_OVERHEAD
         upload = upload * UPLOAD_OVERHEAD
             
@@ -417,20 +414,16 @@ def run_speed_test():
         if upload < MIN_SPEED or download < MIN_SPEED:
             raise ValueError("Speed too low to be reliable")
             
-        # Format server information more accurately
+        # Format server information more efficiently
         city = best_server.get('city', '')
         country = best_server.get('country', '')
         cc = best_server.get('cc', '')
         name = best_server.get('name', '')
         sponsor = best_server.get('sponsor', '')
         
-        # Clean up the data
+        # Clean up the data - combine operations for efficiency
         if not city or city.lower() == 'unknown':
-            # Try to extract city from name or sponsor
-            if ',' in name:
-                city = name.split(',')[0].strip()
-            elif ',' in sponsor:
-                city = sponsor.split(',')[0].strip()
+            city = name.split(',')[0].strip() if ',' in name else sponsor.split(',')[0].strip() if ',' in sponsor else ''
         
         server_info = {
             "name": name if not cc else f"{name} ({cc})",
@@ -674,7 +667,7 @@ def get_network_data():
 
 def get_speed_test_data():
     """Run a speed test and return results"""
-    # Always run a fresh speed test
+    # Always run a fresh speed test - make sure to capture result
     fresh_results = run_speed_test()
     
     # Only update cache if the test was successful
@@ -689,6 +682,9 @@ def get_speed_test_data():
             "upload": fresh_results["upload"],
             "isSpeedTest": True  # Mark this as a speed test result
         })
+        
+        # Update network data immediately to reflect current state
+        update_network_data()
     
     return fresh_results
 

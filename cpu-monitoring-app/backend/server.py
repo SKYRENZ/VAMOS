@@ -112,12 +112,10 @@ async def fetch_network_data():
 @app.get("/api/speedtest")
 async def fetch_speed_test():
     """API endpoint to run a speed test"""
-    # Run the speed test
+    # Run the speed test - network data update is already handled in get_speed_test_data
     speed_test_results = get_speed_test_data()
     
-    # Force an immediate update of all network data to refresh the I/O monitor
-    # with the new speed test values
-    update_network_data()
+    # No need to call update_network_data again here as it's now called within get_speed_test_data
     
     return JSONResponse(content=speed_test_results)
 

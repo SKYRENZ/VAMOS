@@ -175,6 +175,9 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
       setScanProgress(0)
       setNetworkState(prev => ({ ...prev, speedTestData: null }))
 
+      // Start the actual speed test immediately in parallel with the animation
+      const speedTestPromise = fetch(`${API_URL}/speedtest`).then(res => res.json());
+
       // Simulate smooth progress updates based on speed test phases
       const phases = [
         { name: "Finding best server...", duration: 5000, progress: 20 },
@@ -183,6 +186,7 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
         { name: "Finalizing results...", duration: 2000, progress: 99 }
       ];
 
+      // Run animation in parallel with the actual test
       for (const phase of phases) {
         setCurrentPhase(phase.name);
         const startTime = Date.now();
@@ -210,12 +214,12 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
         });
       }
 
-      // Keep at 99% while waiting for actual results
+      // Keep at 99% while waiting for actual results if they're not ready yet
       setCurrentPhase("Processing results...");
       setScanProgress(99);
 
-      const response = await fetch(`${API_URL}/speedtest`)
-      const data = await response.json()
+      // Wait for the actual speed test to complete
+      const data = await speedTestPromise;
 
       // Check if the response contains an error
       if (data.error) {
@@ -569,7 +573,7 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                       <div className="test-server-info mt-3 text-center">
                         <p style={{ color: '#CCCCCC', fontSize: '0.9rem' }}>
                           <i className="fas fa-spinner fa-spin me-2"></i>
-                          Running enhanced accuracy test (may take 15-25 seconds)...
+                          Running enhanced accuracy test (may take 30-45 seconds)...
                         </p>
                       </div>
                     )}
