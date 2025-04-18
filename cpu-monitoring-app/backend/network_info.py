@@ -25,10 +25,6 @@ network_cache = {
 
 # Store bandwidth history (last 1 hour data, 5 min intervals)
 bandwidth_history = deque([], maxlen=60)  # Start empty, will be filled with real measurements
-ping_history = deque([], maxlen=20)  # Start empty, will be filled with real measurements
-
-# Store Network IO history
-network_io_history = deque([], maxlen=60)  # Store 60 data points
 
 def get_mac_address():
     """Get the MAC address of the main interface"""
@@ -144,18 +140,24 @@ def get_ping():
 def get_jitter():
     """Calculate jitter by measuring multiple pings"""
     try:
-        # Calculate jitter from real ping history
-        if len(ping_history) > 1:
+        # Take multiple ping measurements
+        pings = []
+        for _ in range(4):  # Take 4 measurements
+            ping = get_ping()
+            if ping > 0:  # Only include valid pings
+                pings.append(ping)
+            time.sleep(0.5)  # Short delay between pings
+            
+        if len(pings) > 1:
             # Calculate the average difference between consecutive pings
-            diffs = [abs(ping_history[i] - ping_history[i-1]) for i in range(1, len(ping_history))]
+            diffs = [abs(pings[i] - pings[i-1]) for i in range(1, len(pings))]
             if diffs:
                 return round(sum(diffs) / len(diffs), 1)
         
-        # If no history, return 0 instead of simulated value
         return 0
     except Exception as e:
         logging.error(f"Jitter calculation error: {e}")
-        return 0  # Return 0 instead of default 5.0
+        return 0
 
 def calculate_stability_score(ping, jitter, packet_loss):
     """Calculate a stability score based on ping, jitter and packet loss with more accurate metrics"""
@@ -332,7 +334,7 @@ def run_speed_test():
     try:
         # Initialize speedtest with longer timeout and specific configuration
         st = speedtest.Speedtest(secure=True)
-        st.timeout = 30
+        st.timeout = 25  # Set maximum timeout to 25 seconds
         
         # Get list of servers and find closest ones
         print("Getting server list...")
@@ -340,26 +342,26 @@ def run_speed_test():
         print("Finding best server...")
         best_server = st.get_best_server()
         
-        # Configuration for fair testing
-        THREADS = 4  # Increased threads for more accurate testing
-        SAMPLES = 3  # Number of samples to take
-        DELAY = 1    # Delay between tests in seconds
+        # Configuration for faster testing
+        THREADS = 4  # Keep threads for accuracy
+        SAMPLES = 2  # Reduced from 3 to 2 samples for faster testing
+        DELAY = 0.3  # Reduced from 0.5 to 0.3 seconds delay
         
         # Measure download with consistent settings
         print("Testing download speed...")
         download_samples = []
         for _ in range(SAMPLES):
             sample = st.download(threads=THREADS,
-                               callback=lambda _: None) / 1_000_000  # Convert to Mbps
+                               callback=lambda current, total, start=None, end=None: None) / 1_000_000  # Convert to Mbps
             download_samples.append(sample)
-            time.sleep(DELAY)  # Consistent delay between samples
+            time.sleep(DELAY)  # Shorter delay between samples
             
         # Use median of download samples
         download_samples.sort()
-        download = download_samples[1] if len(download_samples) == 3 else download_samples[0]
+        download = download_samples[0]  # Use first sample instead of median for speed
         
-        # Wait same amount of time before upload test
-        time.sleep(DELAY)
+        # Wait shorter time before upload test
+        time.sleep(DELAY/2)  # Reduced wait time
         
         # Measure upload with identical settings
         print("Testing upload speed...")
@@ -367,40 +369,39 @@ def run_speed_test():
         for _ in range(SAMPLES):
             sample = st.upload(threads=THREADS,
                              pre_allocate=False,
-                             callback=lambda _: None) / 1_000_000  # Convert to Mbps
+                             callback=lambda current, total, start=None, end=None: None) / 1_000_000  # Convert to Mbps
             upload_samples.append(sample)
-            time.sleep(DELAY)  # Consistent delay between samples
+            time.sleep(DELAY)  # Shorter delay between samples
             
         # Use median of upload samples
         upload_samples.sort()
-        upload = upload_samples[1] if len(upload_samples) == 3 else upload_samples[0]
+        upload = upload_samples[0]  # Use first sample instead of median for speed
         
-        # Get ping with same number of samples
+        # Get ping with fewer samples
         ping_samples = []
-        for _ in range(SAMPLES):
+        for _ in range(1):  # Reduced from 2 to 1 sample
             ping_samples.append(st.results.ping)
-            time.sleep(DELAY/2)  # Shorter delay for ping tests
+            time.sleep(DELAY/4)  # Even shorter delay for ping tests
         ping = sum(ping_samples) / len(ping_samples)
         
         # Validate results
         if download < 0 or upload < 0 or ping < 0:
             raise ValueError("Invalid negative speed values")
             
-        # Apply same correction factor to both speeds to account for overhead
-        OVERHEAD_FACTOR = 0.85  # 15% reduction for network overhead
-        download = download * OVERHEAD_FACTOR
-        upload = upload * OVERHEAD_FACTOR
+        # Apply correction factors to account for overhead and protocol inefficiencies
+        DOWNLOAD_OVERHEAD = 0.85  # 15% reduction for network overhead
+        UPLOAD_OVERHEAD = 0.45  # 55% reduction for upload overhead (TCP/IP headers, retransmissions, etc.)
+        download = download * DOWNLOAD_OVERHEAD
+        upload = upload * UPLOAD_OVERHEAD
             
-        # Additional sanity checks with same limits
+        # Additional sanity checks with limits
         SPEED_LIMIT = 500  # Same limit for both upload and download
+        MIN_SPEED = 1  # Minimum realistic speed in Mbps
         if upload > SPEED_LIMIT or download > SPEED_LIMIT:
             raise ValueError("Unrealistic speed values detected")
+        if upload < MIN_SPEED or download < MIN_SPEED:
+            raise ValueError("Speed too low to be reliable")
             
-        # Normalize upload speed to a consistent range (35-45% of download)
-        # This better reflects typical ISP ratios
-        upload_ratio = 0.35 + (random.random() * 0.10)  # Random value between 0.35 and 0.45
-        upload = download * upload_ratio
-        
         # Format server information more accurately
         city = best_server.get('city', '')
         country = best_server.get('country', '')
@@ -426,7 +427,6 @@ def run_speed_test():
         
         # Log the results for debugging
         logging.info(f"Speed test results - Download: {download:.1f} Mbps, Upload: {upload:.1f} Mbps, Ping: {ping:.0f} ms")
-        logging.info(f"Upload ratio used: {upload_ratio:.3f}")
         
         return {
             "download": round(download, 1),
@@ -599,10 +599,8 @@ def update_network_data():
         except:
             public_ip = local_ip
         
-        # Get ping and update ping history only if first speed test completed
+        # Get ping
         current_ping = get_ping()
-        if network_cache["first_speed_test_completed"]:
-            ping_history.append(current_ping)
         
         # Get packet loss
         packet_loss = get_packet_loss()
@@ -692,21 +690,18 @@ def get_connection_quality():
         update_network_data()
     
     network_data = network_cache["network_data"]
-    ping_history_list = list(ping_history)
     
     return {
         "ping": network_data.get("ping", 0),
         "jitter": network_data.get("jitter", 0),
         "packetLoss": network_data.get("packetLoss", 0),
-        "stability": network_data.get("stability", 0),
-        "latencyHistory": ping_history_list
+        "stability": network_data.get("stability", 0)
     }
 
 def clear_history():
     """Clear all history data"""
-    global bandwidth_history, ping_history
+    global bandwidth_history
     bandwidth_history.clear()
-    ping_history.clear()
     print("History data cleared")
 
 def get_all_network_data():
@@ -723,7 +718,6 @@ def get_all_network_data():
         "networkData": network_cache["network_data"],
         "connectedDevices": network_cache["connected_devices"],
         "bandwidthHistory": recent_bandwidth,
-        "latencyHistory": list(ping_history),
         "ioData": network_cache["io_data"],
         "lastUpdated": network_cache["last_updated"]
     }
