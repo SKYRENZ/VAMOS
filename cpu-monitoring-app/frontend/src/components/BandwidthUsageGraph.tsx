@@ -27,6 +27,7 @@ interface BandwidthDataPoint {
     timestamp: string;
     download: number;
     upload: number;
+    isSpeedTest?: boolean;
 }
 
 interface BandwidthUsageGraphProps {
@@ -39,14 +40,12 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
     timeRange
 }) => {
     // Format the timestamps based on selected time range
-    const formatLabel = (timestamp: string) => {
+    const formatTime = (timestamp: string) => {
         const date = new Date(timestamp);
-        if (timeRange === '5min') {
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        } else if (timeRange === '1hour') {
+        if (timeRange === '1day') {
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         } else {
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
     };
 
@@ -76,7 +75,8 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
                 sampleData.push({
                     timestamp: time.toISOString(),
                     download: Math.random() * 5, // Random value between 0 and 5
-                    upload: Math.random() * 2  // Random value between 0 and 2
+                    upload: Math.random() * 2,  // Random value between 0 and 2
+                    isSpeedTest: false
                 });
             }
             return sampleData;
@@ -88,96 +88,123 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
     const dataToUse = bandwidthHistory.length > 0 ? bandwidthHistory : ensureData([]);
 
     const data = {
-        labels: dataToUse.map(item => formatLabel(item.timestamp)),
+        labels: dataToUse.map(point => formatTime(point.timestamp)),
         datasets: [
             {
-                label: 'Download (Mbps)',
-                data: dataToUse.map(item => item.download),
+                label: 'Download',
+                data: dataToUse.map((point, index) => ({
+                    x: formatTime(point.timestamp),
+                    y: point.download,
+                    isSpeedTest: point.isSpeedTest
+                })),
                 borderColor: '#00FF00',
-                backgroundColor: 'rgba(0, 255, 0, 0.1)',
-                tension: 0.3,
-                fill: true,
-                pointRadius: 3,
-                pointHoverRadius: 5,
+                backgroundColor: '#00FF00',
+                tension: 0.4,
+                pointRadius: (context: any) => {
+                    const point = dataToUse[context.dataIndex];
+                    return point.isSpeedTest ? 8 : 3;
+                },
+                pointStyle: (context: any) => {
+                    const point = dataToUse[context.dataIndex];
+                    return point.isSpeedTest ? 'star' : 'circle';
+                },
+                pointBackgroundColor: (context: any) => {
+                    const point = dataToUse[context.dataIndex];
+                    return point.isSpeedTest ? '#FFFF00' : '#00FF00';
+                },
+                pointBorderColor: (context: any) => {
+                    const point = dataToUse[context.dataIndex];
+                    return point.isSpeedTest ? '#FFFF00' : '#00FF00';
+                }
             },
             {
-                label: 'Upload (Mbps)',
-                data: dataToUse.map(item => item.upload),
-                borderColor: '#33CCFF',
-                backgroundColor: 'rgba(51, 204, 255, 0.1)',
-                tension: 0.3,
-                fill: true,
-                pointRadius: 3,
-                pointHoverRadius: 5,
-            },
-        ],
+                label: 'Upload',
+                data: dataToUse.map((point, index) => ({
+                    x: formatTime(point.timestamp),
+                    y: point.upload,
+                    isSpeedTest: point.isSpeedTest
+                })),
+                borderColor: '#00FFFF',
+                backgroundColor: '#00FFFF',
+                tension: 0.4,
+                pointRadius: (context: any) => {
+                    const point = dataToUse[context.dataIndex];
+                    return point.isSpeedTest ? 8 : 3;
+                },
+                pointStyle: (context: any) => {
+                    const point = dataToUse[context.dataIndex];
+                    return point.isSpeedTest ? 'star' : 'circle';
+                },
+                pointBackgroundColor: (context: any) => {
+                    const point = dataToUse[context.dataIndex];
+                    return point.isSpeedTest ? '#FFFF00' : '#00FFFF';
+                },
+                pointBorderColor: (context: any) => {
+                    const point = dataToUse[context.dataIndex];
+                    return point.isSpeedTest ? '#FFFF00' : '#00FFFF';
+                }
+            }
+        ]
     };
 
     const options: ChartOptions<'line'> = {
         responsive: true,
         maintainAspectRatio: false,
+        animation: {
+            duration: 0
+        },
         plugins: {
             legend: {
                 position: 'top' as const,
                 labels: {
-                    color: '#CCCCCC',
+                    color: '#FFFFFF',
                     font: {
                         size: 12
                     }
                 }
             },
-            title: {
-                display: false,
-            },
             tooltip: {
                 mode: 'index',
                 intersect: false,
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                titleColor: '#FFFFFF',
-                bodyColor: '#CCCCCC',
-                borderColor: '#333333',
-                borderWidth: 1,
-            },
+                callbacks: {
+                    label: function (context: any) {
+                        const label = context.dataset.label || '';
+                        const value = context.parsed.y;
+                        const isSpeedTest = context.raw.isSpeedTest;
+                        return `${label}: ${value.toFixed(1)} Mbps${isSpeedTest ? ' (Speed Test)' : ''}`;
+                    }
+                }
+            }
         },
         scales: {
             x: {
+                grid: {
+                    color: '#333333'
+                },
                 ticks: {
                     color: '#CCCCCC',
-                    maxRotation: 0,
-                },
-                grid: {
-                    color: 'rgba(255, 255, 255, 0.1)',
-                },
+                    maxRotation: 45,
+                    minRotation: 45
+                }
             },
             y: {
-                beginAtZero: true,
-                max: getYAxisMax(),
-                ticks: {
-                    color: '#CCCCCC',
-                    precision: 1,
-                },
                 grid: {
-                    color: 'rgba(255, 255, 255, 0.1)',
+                    color: '#333333'
+                },
+                ticks: {
+                    color: '#CCCCCC'
                 },
                 title: {
                     display: true,
                     text: 'Speed (Mbps)',
-                    color: '#CCCCCC',
-                },
-            },
-        },
-        interaction: {
-            mode: 'nearest',
-            axis: 'x',
-            intersect: false
-        },
-        animation: {
-            duration: 500
+                    color: '#CCCCCC'
+                }
+            }
         }
     };
 
     return (
-        <div style={{ height: '300px', position: 'relative' }}>
+        <div style={{ height: '400px', padding: '20px 10px' }}>
             <Line data={data} options={options} />
         </div>
     );

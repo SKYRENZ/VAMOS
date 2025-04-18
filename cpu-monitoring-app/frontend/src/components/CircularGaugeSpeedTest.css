@@ -37,6 +37,39 @@
   transition: stroke-dasharray 1.5s ease-in-out;
 }
 
+/* Scanning animation */
+.scanning-animation {
+  animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(-135deg);
+  }
+  to {
+    transform: rotate(225deg);
+  }
+}
+
+.scanning-dots {
+  display: inline-block;
+  animation: dots 1.5s infinite;
+  min-width: 15px;
+  text-align: left;
+}
+
+@keyframes dots {
+  0%, 20% {
+    content: ".";
+  }
+  40% {
+    content: "..";
+  }
+  60%, 100% {
+    content: "...";
+  }
+}
+
 .gauge-value {
   font-size: 24px;
   font-weight: bold;
@@ -119,6 +152,7 @@
   cursor: pointer;
   transition: all 0.3s ease;
   letter-spacing: 1px;
+  min-width: 120px;
 }
 
 .start-button:hover {
@@ -128,8 +162,25 @@
 }
 
 .start-button:disabled {
-  opacity: 0.5;
+  opacity: 0.7;
   cursor: not-allowed;
+  background-color: rgba(0, 255, 0, 0.05);
+}
+
+.scanning-text {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.7;
+  }
 }
 
 @media (max-width: 768px) {

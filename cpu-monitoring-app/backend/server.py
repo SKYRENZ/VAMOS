@@ -25,6 +25,16 @@ from disk_info import get_disk_data
 from memory_info import get_memory_data
 from system_info import get_system_info_response
 import batteryinfo
+from network_info import (
+    get_network_data,
+    get_speed_test_data,
+    get_connected_devices,
+    get_bandwidth_history,
+    get_connection_quality,
+    get_all_network_data,
+    update_network_data,
+    clear_history
+)
 
 app = FastAPI()
 print(app.routes)
@@ -36,6 +46,47 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Start background network data update thread
+update_thread = None
+stop_thread = False
+
+def background_updater():
+    """Background thread to update network data periodically"""
+    global stop_thread
+    while not stop_thread:
+        try:
+            # Log update attempt
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Updating network data...")
+            
+            # Update network data
+            update_network_data()
+            
+            # Wait 30 seconds before next update
+            for _ in range(30):  # Check stop_thread every second
+                if stop_thread:
+                    break
+                time.sleep(1)
+        except Exception as e:
+            logging.error(f"Error in background updater: {e}")
+            time.sleep(5)  # Wait a bit before retrying after error
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background threads when the server starts"""
+    global update_thread, stop_thread
+    stop_thread = False
+    update_thread = threading.Thread(target=background_updater)
+    update_thread.daemon = True
+    update_thread.start()
+    
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop background threads when the server shuts down"""
+    global stop_thread
+    stop_thread = True
+    if update_thread:
+        update_thread.join(timeout=1.0)
 
 @app.get("/system-info")
 async def get_system_info():
@@ -52,483 +103,49 @@ async def fetch_disks():
     """API endpoint to fetch disk information."""
     return get_disk_data()
 
-# Global cache for network data
-network_cache = {
-    "network_data": None,
-    "speed_test": None,
-    "connected_devices": None,
-    "last_updated": None,
-    "io_data": None  # Add Network IO data to cache
-}
-
-# Function to generate initial sample data
-def generate_sample_bandwidth_data(count=20):
-    """Generate sample bandwidth history data"""
-    now = datetime.now()
-    data = []
-    
-    for i in range(count):
-        # Create timestamps going backwards from now
-        timestamp = now - timedelta(seconds=(count - i) * 30)
-        
-        # Generate random speeds that trend upward for realistic look
-        base_download = random.uniform(0.5, 5.0)
-        base_upload = random.uniform(0.2, 2.0)
-        
-        # Add some randomness but maintain a general trend
-        variation = random.uniform(-0.5, 0.5)
-        trend = i / count * 2  # gradually increases
-        
-        download = max(0.1, base_download + variation + trend)
-        upload = max(0.1, base_upload + variation / 2 + trend / 3)
-        
-        data.append({
-            "timestamp": timestamp.isoformat(),
-            "download": round(download, 1),
-            "upload": round(upload, 1)
-        })
-    
-    return data
-
-# Store bandwidth history (last 1 hour data, 5 min intervals)
-bandwidth_history = deque(generate_sample_bandwidth_data(20), maxlen=60)  # Store 60 data points
-ping_history = deque([random.randint(15, 50) for _ in range(10)], maxlen=20)  # Initialize with sample data
-
-# Store Network IO history
-network_io_history = deque([], maxlen=60)  # Store 60 data points
-
-# Background update thread
-update_thread = None
-stop_thread = False
-
-def get_mac_address():
-    """Get the MAC address of the main interface"""
-    try:
-        mac = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
-        return mac
-    except:
-        return "00:00:00:00:00:00"
-
-def get_connection_type():
-    """Determine the connection type (WiFi or Ethernet)"""
-    try:
-        interfaces = psutil.net_if_stats()
-        for interface, stats in interfaces.items():
-            if stats.isup:
-                if "wi" in interface.lower() or "wl" in interface.lower():
-                    return "Wi-Fi"
-                elif "eth" in interface.lower() or "en" in interface.lower():
-                    return "Ethernet"
-        return "Unknown"
-    except:
-        return "Unknown"
-
-def get_signal_strength():
-    """Get WiFi signal strength (only works on some platforms)"""
-    try:
-        if platform.system() == "Windows":
-            output = subprocess.check_output("netsh wlan show interfaces", shell=True).decode()
-            match = re.search(r"Signal\s+:\s+(\d+)%", output)
-            if match:
-                return int(match.group(1))
-        elif platform.system() == "Linux":
-            output = subprocess.check_output("iwconfig 2>/dev/null | grep -i quality", shell=True).decode()
-            match = re.search(r"Quality=(\d+)/(\d+)", output)
-            if match:
-                return int(int(match.group(1)) / int(match.group(2)) * 100)
-        return 80  # Default if we can't determine
-    except:
-        return 80  # Default value
-
-def get_ping():
-    """Measure ping to Google's DNS"""
-    try:
-        param = "-n" if platform.system().lower() == "windows" else "-c"
-        command = ["ping", param, "1", "8.8.8.8"]
-        output = subprocess.check_output(command).decode()
-        
-        if platform.system().lower() == "windows":
-            match = re.search(r"Average = (\d+)ms", output)
-        else:
-            match = re.search(r"time=(\d+\.\d+) ms", output)
-            
-        if match:
-            return int(float(match.group(1)))
-        return 0
-    except:
-        # For demo, return a realistic ping value instead of 0 on error
-        return random.randint(20, 60)
-
-def get_jitter():
-    """Calculate jitter by measuring multiple pings"""
-    try:
-        # For demo purposes, simulate jitter
-        if len(ping_history) > 1:
-            # Calculate the average difference between consecutive pings
-            diffs = [abs(ping_history[i] - ping_history[i-1]) for i in range(1, len(ping_history))]
-            if diffs:
-                return round(sum(diffs) / len(diffs), 1)
-        
-        # If no history or error, return a simulated value
-        return round(random.uniform(1.0, 10.0), 1)
-    except Exception as e:
-        logging.error(f"Jitter calculation error: {e}")
-        return 5.0  # Default value
-
-def calculate_stability_score(ping, jitter, packet_loss):
-    """Calculate a stability score based on ping, jitter and packet loss"""
-    # This is a simple algorithm, real-world stability would be more complex
-    ping_score = max(0, 100 - (ping / 1.5))  # Lower ping is better
-    jitter_score = max(0, 100 - (jitter * 5))  # Lower jitter is better
-    packet_loss_score = max(0, 100 - (packet_loss * 10))  # Lower packet loss is better
-    
-    # Weighted average
-    stability = 0.4 * ping_score + 0.3 * jitter_score + 0.3 * packet_loss_score
-    return round(stability)
-
-def get_packet_loss():
-    """Measure packet loss to Google's DNS"""
-    try:
-        param = "-n" if platform.system().lower() == "windows" else "-c"
-        command = ["ping", param, "10", "8.8.8.8"]
-        output = subprocess.check_output(command).decode()
-        
-        if platform.system().lower() == "windows":
-            match = re.search(r"Lost = (\d+) \((\d+)%", output)
-            if match:
-                return int(match.group(2))
-        else:
-            match = re.search(r"(\d+)% packet loss", output)
-            if match:
-                return int(match.group(1))
-        return 0
-    except:
-        # For demo, simulate a small amount of packet loss
-        return random.choices([0, 1, 2], weights=[0.8, 0.15, 0.05])[0]
-
-def get_dns_server():
-    """Get the DNS server"""
-    try:
-        if platform.system() == "Windows":
-            output = subprocess.check_output("ipconfig /all", shell=True).decode()
-            match = re.search(r"DNS Servers[^\n]+:\s*([^\s]+)", output)
-            if match:
-                return match.group(1)
-        elif platform.system() == "Linux":
-            with open("/etc/resolv.conf") as f:
-                for line in f:
-                    if "nameserver" in line:
-                        return line.split()[1]
-        return "8.8.8.8"  # Default if we can't determine
-    except:
-        return "8.8.8.8"  # Default value
-
-def run_speed_test():
-    """Run a speed test"""
-    try:
-        # For faster demo purposes, return simulated data instead of running actual test
-        # Comment this out to use real speedtest
-        return {
-            "download": round(random.uniform(50.0, 120.0), 1),
-            "upload": round(random.uniform(15.0, 40.0), 1),
-            "ping": round(random.uniform(15, 50), 0)
-        }
-        
-        # Original speed test code - uncomment to use real test
-        # st = speedtest.Speedtest()
-        # st.get_best_server()
-        # download = st.download() / 1_000_000  # Convert to Mbps
-        # upload = st.upload() / 1_000_000  # Convert to Mbps
-        # ping = st.results.ping
-        
-        # return {
-        #     "download": round(download, 1),
-        #     "upload": round(upload, 1),
-        #     "ping": round(ping, 0)
-        # }
-    except Exception as e:
-        logging.error(f"Speed test error: {e}")
-        return {
-            "download": 0,
-            "upload": 0,
-            "ping": 0
-        }
-
-def scan_network():
-    """Scan for devices on the network"""
-    try:
-        # Get local IP
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
-        
-        # Get network prefix
-        ip_parts = local_ip.split('.')
-        network_prefix = '.'.join(ip_parts[:-1]) + '.'
-        
-        # Scan common IPs
-        devices = []
-        for i in range(1, 10):  # Limit to 10 IPs for performance
-            ip = network_prefix + str(i)
-            if ip == local_ip:
-                devices.append({
-                    "id": "this-device",
-                    "name": "This Device",
-                    "status": "Active",
-                    "ipAddress": ip,
-                    "macAddress": get_mac_address()
-                })
-                continue
-                
-            # Try to ping the IP
-            param = "-n" if platform.system().lower() == "windows" else "-c"
-            command = ["ping", param, "1", "-W", "1", ip]
-            try:
-                subprocess.check_output(command, stderr=subprocess.STDOUT)
-                # If we get here, the ping was successful
-                hostname = "Unknown Device"
-                try:
-                    hostname = socket.gethostbyaddr(ip)[0]
-                except:
-                    pass
-                
-                devices.append({
-                    "id": f"device-{i}",
-                    "name": hostname,
-                    "status": "Active",
-                    "ipAddress": ip,
-                    "macAddress": "Unknown"  # Getting MAC requires ARP which needs root
-                })
-            except:
-                pass
-        
-        # Always add router
-        router_ip = network_prefix + "1"
-        if not any(d["ipAddress"] == router_ip for d in devices):
-            devices.append({
-                "id": "router",
-                "name": "Router",
-                "status": "Active",
-                "ipAddress": router_ip,
-                "macAddress": "Unknown"
-            })
-            
-        return devices
-    except Exception as e:
-        logging.error(f"Network scan error: {e}")
-        return [{
-            "id": "this-device",
-            "name": "This Device",
-            "status": "Active",
-            "ipAddress": "127.0.0.1",
-            "macAddress": get_mac_address()
-        }]
-
-def get_network_io():
-    """Get network I/O statistics"""
-    try:
-        # Get initial network I/O counters
-        net_io = psutil.net_io_counters()
-        time.sleep(1)  # Wait 1 second to measure
-        net_io_after = psutil.net_io_counters()
-        
-        # Calculate speeds and packet counts
-        bytes_sent = net_io_after.bytes_sent - net_io.bytes_sent
-        bytes_recv = net_io_after.bytes_recv - net_io.bytes_recv
-        packets_sent = net_io_after.packets_sent - net_io.packets_sent
-        packets_recv = net_io_after.packets_recv - net_io.packets_recv
-        
-        # Calculate speeds in Mbps
-        upload_speed = bytes_sent * 8 / 1_000_000  # Convert to Mbps
-        download_speed = bytes_recv * 8 / 1_000_000  # Convert to Mbps
-        
-        # Calculate packet rates
-        upload_packets = packets_sent
-        download_packets = packets_recv
-        
-        # Get network interface details
-        interfaces = psutil.net_if_stats()
-        active_interfaces = [name for name, stats in interfaces.items() if stats.isup]
-        
-        return {
-            "uploadSpeed": round(upload_speed, 2),
-            "downloadSpeed": round(download_speed, 2),
-            "uploadPackets": upload_packets,
-            "downloadPackets": download_packets,
-            "activeInterfaces": active_interfaces,
-            "bytesSent": bytes_sent,
-            "bytesReceived": bytes_recv
-        }
-    except Exception as e:
-        logging.error(f"Network I/O monitoring error: {e}")
-        return {
-            "uploadSpeed": 0,
-            "downloadSpeed": 0,
-            "uploadPackets": 0,
-            "downloadPackets": 0,
-            "activeInterfaces": [],
-            "bytesSent": 0,
-            "bytesReceived": 0
-        }
-
-def update_network_data():
-    """Update all network data"""
-    try:
-        # Get network interfaces
-        net_io = psutil.net_io_counters()
-        
-        # Calculate current speeds
-        time.sleep(1)  # Wait 1 second to measure
-        net_io_after = psutil.net_io_counters()
-        download_speed = (net_io_after.bytes_recv - net_io.bytes_recv) * 8 / 1_000_000  # Mbps
-        upload_speed = (net_io_after.bytes_sent - net_io.bytes_sent) * 8 / 1_000_000  # Mbps
-        
-        # Add some randomness to make the graph more interesting in demo mode
-        if download_speed < 0.5:  # If very little actual activity
-            download_speed += random.uniform(0.5, 5.0)  # Add some simulated traffic
-            upload_speed += random.uniform(0.2, 1.5)
-        
-        # Get hostname and IP
-        hostname = socket.gethostname()
-        local_ip = socket.gethostbyname(hostname)
-        
-        # Try to get public IP
-        try:
-            public_ip = urllib.request.urlopen('https://api.ipify.org').read().decode('utf8')
-        except:
-            public_ip = local_ip
-        
-        # Get ping and update ping history
-        current_ping = get_ping()
-        ping_history.append(current_ping)
-        
-        # Get packet loss
-        packet_loss = get_packet_loss()
-        
-        # Calculate jitter
-        jitter = get_jitter()
-        
-        # Calculate stability score
-        stability = calculate_stability_score(current_ping, jitter, packet_loss)
-            
-        network_cache["network_data"] = {
-            "connectionType": get_connection_type(),
-            "signalStrength": get_signal_strength(),
-            "downloadSpeed": round(download_speed, 1),
-            "uploadSpeed": round(upload_speed, 1),
-            "ping": current_ping,
-            "jitter": jitter,
-            "packetLoss": packet_loss,
-            "stability": stability,
-            "ipAddress": public_ip,
-            "dnsServer": get_dns_server(),
-            "macAddress": get_mac_address()
-        }
-        
-        # Add to bandwidth history
-        bandwidth_history.append({
-            "timestamp": datetime.now().isoformat(),
-            "download": round(download_speed, 1),
-            "upload": round(upload_speed, 1)
-        })
-        
-        # Update Network IO data
-        network_cache["io_data"] = get_network_io()
-        
-        network_cache["connected_devices"] = scan_network()
-        network_cache["last_updated"] = datetime.now().isoformat()
-        
-        print("Network data updated")
-    except Exception as e:
-        logging.error(f"Update error: {e}")
-
-def background_updater():
-    """Background thread to update network data periodically"""
-    global stop_thread
-    while not stop_thread:
-        update_network_data()
-        time.sleep(10)  # Update every 10 seconds for more frequent updates in demo mode
-
 # Network Monitoring Endpoints
 @app.get("/api/network")
-async def get_network_data():
+async def fetch_network_data():
     """API endpoint to get network data"""
-    if network_cache["network_data"] is None:
-        update_network_data()
-    return JSONResponse(content=network_cache["network_data"])
+    return JSONResponse(content=get_network_data())
 
 @app.get("/api/speedtest")
-async def get_speed_test():
+async def fetch_speed_test():
     """API endpoint to run a speed test"""
-    network_cache["speed_test"] = run_speed_test()
-    return JSONResponse(content=network_cache["speed_test"])
+    # Run the speed test - network data update is already handled in get_speed_test_data
+    speed_test_results = get_speed_test_data()
+    
+    # Force an immediate network data update to reflect new state
+    update_network_data()
+    
+    # Ensure data is immediately accessible to all routes
+    return JSONResponse(content=speed_test_results)
 
 @app.get("/api/devices")
-async def get_devices():
+async def fetch_devices():
     """API endpoint to get connected devices"""
-    if network_cache["connected_devices"] is None:
-        network_cache["connected_devices"] = scan_network()
-    return JSONResponse(content=network_cache["connected_devices"])
+    return JSONResponse(content=get_connected_devices())
 
 @app.get("/api/bandwidth-history")
-async def get_bandwidth_history(timeframe: str = "5min"):
+async def fetch_bandwidth_history(timeframe: str = "5min"):
     """API endpoint to get bandwidth history"""
-    now = datetime.now()
-    
-    if timeframe == "5min":
-        # Last 5 minutes of data
-        cutoff = now - timedelta(minutes=5)
-    elif timeframe == "1hour":
-        # Last hour of data
-        cutoff = now - timedelta(hours=1)
-    elif timeframe == "1day":
-        # Last day of data
-        cutoff = now - timedelta(days=1)
-    else:
-        # Default to all available data
-        cutoff = now - timedelta(days=100)
-    
-    filtered_data = [item for item in bandwidth_history if datetime.fromisoformat(item["timestamp"]) >= cutoff]
-    
-    return JSONResponse(content=filtered_data)
+    return JSONResponse(content=get_bandwidth_history(timeframe))
 
 @app.get("/api/connection-quality")
-async def get_connection_quality():
+async def fetch_connection_quality():
     """API endpoint to get connection quality data"""
-    if network_cache["network_data"] is None:
-        update_network_data()
-    
-    network_data = network_cache["network_data"]
-    ping_history_list = list(ping_history)
-    
-    return JSONResponse(content={
-        "ping": network_data.get("ping", 0),
-        "jitter": network_data.get("jitter", 0),
-        "packetLoss": network_data.get("packetLoss", 0),
-        "stability": network_data.get("stability", 0),
-        "latencyHistory": ping_history_list
-    })
+    return JSONResponse(content=get_connection_quality())
 
 @app.get("/api/all")
-async def get_all_data():
+async def fetch_all_data():
     """API endpoint to get all network data"""
-    if network_cache["network_data"] is None:
-        update_network_data()
-    
-    # Get the last 5 minutes of bandwidth history
-    now = datetime.now()
-    cutoff = now - timedelta(minutes=5)
-    recent_bandwidth = [item for item in bandwidth_history if datetime.fromisoformat(item["timestamp"]) >= cutoff]
-    
-    return JSONResponse(content={
-        "networkData": network_cache["network_data"],
-        "connectedDevices": network_cache["connected_devices"],
-        "bandwidthHistory": recent_bandwidth,
-        "latencyHistory": list(ping_history),
-        "ioData": network_cache["io_data"],
-        "lastUpdated": network_cache["last_updated"]
-    })
+    return JSONResponse(content=get_all_network_data())
+
+@app.get("/api/clear-history")
+async def clear_history():
+    """API endpoint to clear all history data"""
+    clear_history()
+    return JSONResponse(content={"status": "success", "message": "History cleared"})
 
 # System Monitoring Endpoints
 @app.get("/cpu-usage")

@@ -39,16 +39,27 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
                         cy="60"
                         r="54"
                     />
-                    <circle
-                        className="gauge-progress"
-                        cx="60"
-                        cy="60"
-                        r="54"
-                        strokeDasharray={`${calculateStrokeLength(ping || 0, 100)} 1000`}
-                        stroke="#FFCC00"
-                    />
+                    {isRunning ? (
+                        <circle
+                            className="gauge-progress scanning-animation"
+                            cx="60"
+                            cy="60"
+                            r="54"
+                            strokeDasharray="66 200"
+                            stroke="#FFCC00"
+                        />
+                    ) : (
+                        <circle
+                            className="gauge-progress"
+                            cx="60"
+                            cy="60"
+                            r="54"
+                            strokeDasharray={`${calculateStrokeLength(ping || 0, 100)} 1000`}
+                            stroke="#FFCC00"
+                        />
+                    )}
                     <text x="60" y="55" className="gauge-value">
-                        {ping || 0}
+                        {isRunning ? '...' : (ping || 0)}
                     </text>
                     <text x="60" y="70" className="gauge-label">ms</text>
                     <g className="gauge-icon">
@@ -69,16 +80,27 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
                         cy="60"
                         r="54"
                     />
-                    <circle
-                        className="gauge-progress"
-                        cx="60"
-                        cy="60"
-                        r="54"
-                        strokeDasharray={`${calculateStrokeLength(downloadSpeed || 0, 100)} 1000`}
-                        stroke="#00FF00"
-                    />
+                    {isRunning ? (
+                        <circle
+                            className="gauge-progress scanning-animation"
+                            cx="60"
+                            cy="60"
+                            r="54"
+                            strokeDasharray="66 200"
+                            stroke="#00FF00"
+                        />
+                    ) : (
+                        <circle
+                            className="gauge-progress"
+                            cx="60"
+                            cy="60"
+                            r="54"
+                            strokeDasharray={`${calculateStrokeLength(downloadSpeed || 0, 100)} 1000`}
+                            stroke="#00FF00"
+                        />
+                    )}
                     <text x="60" y="55" className="gauge-value">
-                        {formatSpeed(downloadSpeed || 0)}
+                        {isRunning ? '...' : formatSpeed(downloadSpeed || 0)}
                     </text>
                     <text x="60" y="70" className="gauge-label">Mbit/s</text>
                     <g className="gauge-icon">
@@ -99,16 +121,27 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
                         cy="60"
                         r="54"
                     />
-                    <circle
-                        className="gauge-progress"
-                        cx="60"
-                        cy="60"
-                        r="54"
-                        strokeDasharray={`${calculateStrokeLength(uploadSpeed || 0, 100)} 1000`}
-                        stroke="#33CC33"
-                    />
+                    {isRunning ? (
+                        <circle
+                            className="gauge-progress scanning-animation"
+                            cx="60"
+                            cy="60"
+                            r="54"
+                            strokeDasharray="66 200"
+                            stroke="#33CC33"
+                        />
+                    ) : (
+                        <circle
+                            className="gauge-progress"
+                            cx="60"
+                            cy="60"
+                            r="54"
+                            strokeDasharray={`${calculateStrokeLength(uploadSpeed || 0, 100)} 1000`}
+                            stroke="#33CC33"
+                        />
+                    )}
                     <text x="60" y="55" className="gauge-value">
-                        {formatSpeed(uploadSpeed || 0)}
+                        {isRunning ? '...' : formatSpeed(uploadSpeed || 0)}
                     </text>
                     <text x="60" y="70" className="gauge-label">Mbit/s</text>
                     <g className="gauge-icon">
@@ -126,8 +159,22 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
                     onClick={onStartTest}
                     disabled={isRunning}
                 >
-                    {isRunning ? 'SCANNING...' : 'START'}
+                    {isRunning ? (
+                        <>
+                            <span className="scanning-text">SCANNING</span>
+                            <span className="scanning-dots">...</span>
+                        </>
+                    ) : 'START'}
                 </button>
+                {isRunning && (
+                    <div className="update-message" style={{
+                        color: '#66FF66',
+                        fontSize: '0.8rem',
+                        textAlign: 'center',
+                        marginTop: '5px',
+                        fontStyle: 'italic'
+                    }}>                    </div>
+                )}
             </div>
         </div>
     );
