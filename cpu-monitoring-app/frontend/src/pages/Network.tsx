@@ -177,8 +177,8 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
 
       // Simulate smooth progress updates based on speed test phases
       const phases = [
-        { name: "Finding best server...", duration: 3000, progress: 10 },
-        { name: "Testing download speed...", duration: 10000, progress: 50 },
+        { name: "Finding best server...", duration: 5000, progress: 20 },
+        { name: "Testing download speed...", duration: 8000, progress: 50 },
         { name: "Testing upload speed...", duration: 8000, progress: 80 },
         { name: "Finalizing results...", duration: 2000, progress: 99 }
       ];
