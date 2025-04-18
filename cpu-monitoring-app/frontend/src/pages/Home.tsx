@@ -7,8 +7,9 @@ import "./custom.css" // For custom styling on top of Bootstrap
 import StorageInfo from "../components/StorageInfo" // Import the StorageInfo component
 import { UsageBar } from "../components/UsageBar";
 import useMemoryData from "../hooks/useMemoryData" // Import the custom hook for memory data
-import SystemSpecs from "../components/SystemSpecs"; 
+import SystemSpecs from "../components/SystemSpecs";
 import useCPUStats from "../hooks/useCPUStats";
+import SpeedTestNotification from '../components/SpeedTestNotification';
 
 
 const RADIAN = Math.PI / 180
@@ -78,7 +79,7 @@ const GaugeChart = ({ title, value }: GaugeChartProps) => (
             endAngle={0}
             data={generateData()}
             cx={cx}
-            cy={cy +10}
+            cy={cy + 10}
             innerRadius={iR}
             outerRadius={oR}
             stroke="none"
@@ -87,8 +88,8 @@ const GaugeChart = ({ title, value }: GaugeChartProps) => (
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Pie>
-          {needle(value, cx, cy +10 , iR, oR, "#00ff00")}
-          <text x={cx} y={cy +50} textAnchor="middle" dominantBaseline="middle" className="gauge-value">
+          {needle(value, cx, cy + 10, iR, oR, "#00ff00")}
+          <text x={cx} y={cy + 50} textAnchor="middle" dominantBaseline="middle" className="gauge-value">
             {value}
           </text>
           <text x={cx} y={cy + 75} textAnchor="middle" dominantBaseline="middle" className="gauge-percent">
@@ -123,7 +124,7 @@ const TemperatureBar = () => {
           headers: { Accept: "application/json" },
         });
         const cpuData = await cpuResponse.json();
-        
+
         // Fetch GPU temperature
         const gpuResponse = await fetch("http://localhost:5000/gpu-temperature", {
           headers: { Accept: "application/json" },
@@ -185,7 +186,7 @@ const TemperatureBar = () => {
               {gpuTemp} °C
             </span>
           </li>
-          
+
           <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
             <span>GPU Clock</span>
             <span className="text-success">{gpuStats.gpu_clock_speed} MHz</span>
@@ -200,10 +201,31 @@ const TemperatureBar = () => {
   )
 }
 
-    
+interface SpeedTestResult {
+  download: number;
+  upload: number;
+  ping: number;
+  server?: {
+    name: string;
+    location: string;
+    sponsor: string;
+    latency: number;
+    distance: string;
+  };
+}
 
+interface HomeProps {
+  networkState?: {
+    speedTestCompleted: boolean;
+    speedTestData: SpeedTestResult | null;
+    isRunningSpeedTest: boolean;
+    scanProgress: number;
+    currentPhase: string;
+    error: string | null;
+  };
+}
 
-const Home = () => {
+const Home = ({ networkState }: HomeProps) => {
   const [cpuUsage, setCpuUsage] = useState(50);
   const [gpuUsage, setGpuUsage] = useState(30);
   const { memory, error: memoryError } = useMemoryData();
@@ -220,7 +242,7 @@ const Home = () => {
         const gpuResponse = await fetch("http://localhost:5000/gpu-usage");
         const gpuData = await gpuResponse.json();
         // Handles both success and error cases from your backend
-        setGpuUsage(gpuData.gpu_usage_percent ?? 0); 
+        setGpuUsage(gpuData.gpu_usage_percent ?? 0);
       } catch (error) {
         console.error("Error fetching usage data:", error);
         setCpuUsage(0);
@@ -332,6 +354,8 @@ const Home = () => {
           </div>
         </div>
       </div>
+
+      {networkState && <SpeedTestNotification networkState={networkState} />}
     </div>
   );
 };

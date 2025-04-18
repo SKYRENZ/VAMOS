@@ -3,8 +3,33 @@
 import { useState, useEffect } from "react"
 import "./custom.css"
 import ChargerConnected from "../assets/Charger.gif"
+import SpeedTestNotification from '../components/SpeedTestNotification'
 
-export const Battery = () => {
+interface SpeedTestResult {
+  download: number;
+  upload: number;
+  ping: number;
+  server?: {
+    name: string;
+    location: string;
+    sponsor: string;
+    latency: number;
+    distance: string;
+  };
+}
+
+interface BatteryProps {
+  networkState?: {
+    speedTestCompleted: boolean;
+    speedTestData: SpeedTestResult | null;
+    isRunningSpeedTest: boolean;
+    scanProgress: number;
+    currentPhase: string;
+    error: string | null;
+  };
+}
+
+export const Battery = ({ networkState }: BatteryProps) => {
   const [batteryLevel, setBatteryLevel] = useState(75)
   const [isCharging, setIsCharging] = useState(false)
   const [batteryTimeLeft, setBatteryTimeLeft] = useState(300)
@@ -45,7 +70,7 @@ export const Battery = () => {
 
   return (
     <div className="text-[#cccccc] font-[Arial] vh-100 vw-100 flex flex-col items-center overflow-y-auto overflow-x-hidden">
-      
+
       {/* Dashboard Header */}
       <div className="dashboard-header py-2 w-full text-center sticky top-0 bg-dark">
         <h1 className="m-0 fs-4">BATTERY MONITOR</h1>
@@ -98,30 +123,32 @@ export const Battery = () => {
       </div>
 
       {/* Battery Info */}
-  <div style={{ height: "60vh", display: "flex", justifyContent: "center"}}>
-  <div className="battery-info mt-5 w-full text-center" style={{ backgroundColor:"#121212" ,width: "100vh", height: "35vh", padding: "2rem", borderRadius: "8px" }}>
-  <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "2vw" , color:"#00ff00",}}>
-      <div style={{ flex: 1, textAlign: "left" }}><strong>Battery Information</strong></div>
-    </div>
-    <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "1.5vw" }}>
-      <div style={{ flex: 1, textAlign: "left" , color:"#cccccc"}}><strong>Charging Status:</strong></div>
-      <div style={{ flex: 1, textAlign: "right", color:"#00ff00" }}>{batteryData.charging_status ? "Charging" : "Not Charging"}</div>
-    </div>
-    <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "1.5vw" }}>
-      <div style={{ flex: 1, textAlign: "left" , color:"#cccccc"}}><strong>Power Usage (W):</strong></div>
-      <div style={{ flex: 1, textAlign: "right" , color:"#00ff00"}}>{batteryData.system_power_usage} W</div>
-    </div>
-    <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "1.5vw" }}>
-      <div style={{ flex: 1, textAlign: "left" , color:"#cccccc"}}><strong>Discharge Rate (W):</strong></div>
-      <div style={{ flex: 1, textAlign: "right" , color:"#00ff00"}}>{batteryData.battery_discharge_rate} W</div>
-    </div>
-    <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "1.5vw" }}>
-      <div style={{ flex: 1, textAlign: "left" , color:"#cccccc"}}><strong>System Uptime:</strong></div>
-      <div style={{ flex: 1, textAlign: "right" , color:"#00ff00"}}>{batteryData.system_uptime}</div>
-    </div>
-  </div>
-</div>
+      <div style={{ height: "60vh", display: "flex", justifyContent: "center" }}>
+        <div className="battery-info mt-5 w-full text-center" style={{ backgroundColor: "#121212", width: "100vh", height: "35vh", padding: "2rem", borderRadius: "8px" }}>
+          <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "2vw", color: "#00ff00", }}>
+            <div style={{ flex: 1, textAlign: "left" }}><strong>Battery Information</strong></div>
+          </div>
+          <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "1.5vw" }}>
+            <div style={{ flex: 1, textAlign: "left", color: "#cccccc" }}><strong>Charging Status:</strong></div>
+            <div style={{ flex: 1, textAlign: "right", color: "#00ff00" }}>{batteryData.charging_status ? "Charging" : "Not Charging"}</div>
+          </div>
+          <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "1.5vw" }}>
+            <div style={{ flex: 1, textAlign: "left", color: "#cccccc" }}><strong>Power Usage (W):</strong></div>
+            <div style={{ flex: 1, textAlign: "right", color: "#00ff00" }}>{batteryData.system_power_usage} W</div>
+          </div>
+          <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "1.5vw" }}>
+            <div style={{ flex: 1, textAlign: "left", color: "#cccccc" }}><strong>Discharge Rate (W):</strong></div>
+            <div style={{ flex: 1, textAlign: "right", color: "#00ff00" }}>{batteryData.battery_discharge_rate} W</div>
+          </div>
+          <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "1.5vw" }}>
+            <div style={{ flex: 1, textAlign: "left", color: "#cccccc" }}><strong>System Uptime:</strong></div>
+            <div style={{ flex: 1, textAlign: "right", color: "#00ff00" }}>{batteryData.system_uptime}</div>
+          </div>
+        </div>
+      </div>
 
+      {/* Speed Test Notification */}
+      {networkState && <SpeedTestNotification networkState={networkState} />}
     </div>
   )
 }

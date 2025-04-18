@@ -115,8 +115,10 @@ async def fetch_speed_test():
     # Run the speed test - network data update is already handled in get_speed_test_data
     speed_test_results = get_speed_test_data()
     
-    # No need to call update_network_data again here as it's now called within get_speed_test_data
+    # Force an immediate network data update to reflect new state
+    update_network_data()
     
+    # Ensure data is immediately accessible to all routes
     return JSONResponse(content=speed_test_results)
 
 @app.get("/api/devices")

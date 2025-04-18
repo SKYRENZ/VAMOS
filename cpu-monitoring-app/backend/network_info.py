@@ -685,6 +685,12 @@ def get_speed_test_data():
         
         # Update network data immediately to reflect current state
         update_network_data()
+        
+        # Log success
+        print(f"Speed test completed - Download: {fresh_results['download']} Mbps, Upload: {fresh_results['upload']} Mbps")
+    else:
+        # Log failure
+        print(f"Speed test failed: {fresh_results.get('error', 'Unknown error')}")
     
     return fresh_results
 

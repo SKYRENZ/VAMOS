@@ -9,6 +9,7 @@ import ConnectionQualityMonitor from '../components/ConnectionQualityMonitor'
 import IOMonitor from '../components/IOMonitor'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
+import SpeedTestNotification from '../components/SpeedTestNotification'
 
 // Add CSS for animations
 const animationStyles = `
@@ -91,14 +92,23 @@ interface NetworkProps {
   networkState: {
     speedTestCompleted: boolean;
     speedTestData: SpeedTestResult | null;
+    isRunningSpeedTest: boolean;
+    scanProgress: number;
+    currentPhase: string;
+    error: string | null;
   };
   setNetworkState: React.Dispatch<React.SetStateAction<{
     speedTestCompleted: boolean;
     speedTestData: SpeedTestResult | null;
+    isRunningSpeedTest: boolean;
+    scanProgress: number;
+    currentPhase: string;
+    error: string | null;
   }>>;
+  onRunSpeedTest: () => Promise<void>;
 }
 
-export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
+export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: NetworkProps) => {
   const [networkData, setNetworkData] = useState<NetworkData | null>({
     connectionType: "Unknown",
     signalStrength: 0,
@@ -123,16 +133,13 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
   })
   const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [isRunningSpeedTest, setIsRunningSpeedTest] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [bandwidthHistory, setBandwidthHistory] = useState<BandwidthDataPoint[]>([])
   const [latencyHistory, setLatencyHistory] = useState<number[]>([])
   const [timeRange, setTimeRange] = useState<'5min' | '1hour' | '1day'>('5min')
-  const [scanProgress, setScanProgress] = useState(0);
   const [isScanning, setIsScanning] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState<string>("");
   const contentRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null)
 
   // Fetch all network data
   const fetchData = async () => {
@@ -167,103 +174,13 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
     }
   }
 
-  // Run speed test
-  const handleRunSpeedTest = async () => {
-    try {
-      setIsRunningSpeedTest(true)
-      setIsScanning(true)
-      setScanProgress(0)
-      setNetworkState(prev => ({ ...prev, speedTestData: null }))
-
-      // Start the actual speed test immediately in parallel with the animation
-      const speedTestPromise = fetch(`${API_URL}/speedtest`).then(res => res.json());
-
-      // Simulate smooth progress updates based on speed test phases
-      const phases = [
-        { name: "Finding best server...", duration: 5000, progress: 20 },
-        { name: "Testing download speed...", duration: 8000, progress: 50 },
-        { name: "Testing upload speed...", duration: 8000, progress: 80 },
-        { name: "Finalizing results...", duration: 2000, progress: 99 }
-      ];
-
-      // Run animation in parallel with the actual test
-      for (const phase of phases) {
-        setCurrentPhase(phase.name);
-        const startTime = Date.now();
-        const endTime = startTime + phase.duration;
-        const startProgress = phases.indexOf(phase) > 0 ? phases[phases.indexOf(phase) - 1].progress : 0;
-
-        const updateProgress = () => {
-          const now = Date.now();
-          const elapsed = now - startTime;
-          const progress = Math.min(
-            phase.progress,
-            startProgress + (elapsed / phase.duration) * (phase.progress - startProgress)
-          );
-
-          setScanProgress(progress);
-
-          if (now < endTime) {
-            requestAnimationFrame(updateProgress);
-          }
-        };
-
-        await new Promise<void>((resolve) => {
-          updateProgress();
-          setTimeout(resolve, phase.duration);
-        });
-      }
-
-      // Keep at 99% while waiting for actual results if they're not ready yet
-      setCurrentPhase("Processing results...");
-      setScanProgress(99);
-
-      // Wait for the actual speed test to complete
-      const data = await speedTestPromise;
-
-      // Check if the response contains an error
-      if (data.error) {
-        setError(data.error)
-        setNetworkState(prev => ({ ...prev, speedTestData: null }))
-      } else {
-        // Smooth transition to 100%
-        const startTime = Date.now();
-        const duration = 500; // 0.5 seconds to reach 100%
-
-        const updateTo100 = () => {
-          const now = Date.now();
-          const elapsed = now - startTime;
-          const progress = Math.min(100, 99 + (elapsed / duration));
-
-          setScanProgress(progress);
-
-          if (progress < 100) {
-            requestAnimationFrame(updateTo100);
-          } else {
-            setCurrentPhase("Test completed!");
-          }
-        };
-
-        updateTo100();
-
-        setNetworkState(prev => ({ ...prev, speedTestData: data }))
-        // Refresh all network data after speed test completes
-        await fetchData()
-        // Set the speed test as completed to show remaining content
-        setNetworkState(prev => ({ ...prev, speedTestCompleted: true }))
-
-        // Refresh data again after a short delay to ensure I/O Monitor is updated
-        setTimeout(fetchData, 1000)
-        setTimeout(fetchData, 3000)
-      }
-    } catch (err) {
-      console.error('Error running speed test:', err)
-      setError('Failed to run speed test.')
-    } finally {
-      setIsRunningSpeedTest(false)
-      setIsScanning(false)
-      setCurrentPhase("")
-    }
+  // Run speed test - use the function from the app component
+  const handleRunSpeedTest = () => {
+    setIsScanning(true);
+    // Call the app-level function
+    onRunSpeedTest().finally(() => {
+      setIsScanning(false);
+    });
   }
 
   // Handle time range change for bandwidth graph
@@ -554,7 +471,7 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                     </h5>
 
                     <CircularGaugeSpeedTest
-                      isRunning={isRunningSpeedTest}
+                      isRunning={networkState.isRunningSpeedTest}
                       downloadSpeed={networkState.speedTestData?.download || null}
                       uploadSpeed={networkState.speedTestData?.upload || null}
                       ping={networkState.speedTestData?.ping || null}
@@ -564,12 +481,12 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                     {isScanning && (
                       <div className="progress-container mt-3" style={{ maxWidth: '400px', margin: '0 auto' }}>
                         <div className="text-center" style={{ color: '#CCCCCC' }}>
-                          {currentPhase} {Math.round(scanProgress)}%
+                          {networkState.currentPhase} {Math.round(networkState.scanProgress)}%
                         </div>
                       </div>
                     )}
 
-                    {isRunningSpeedTest && (
+                    {networkState.isRunningSpeedTest && (
                       <div className="test-server-info mt-3 text-center">
                         <p style={{ color: '#CCCCCC', fontSize: '0.9rem' }}>
                           <i className="fas fa-spinner fa-spin me-2"></i>
@@ -816,6 +733,9 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
           {lastUpdated && `(${Math.round((Date.now() - lastUpdated.getTime()) / 1000)}s ago)`}
         </span>
       </div>
+
+      {/* Speed Test Notification */}
+      <SpeedTestNotification networkState={networkState} />
     </div>
   )
 }
