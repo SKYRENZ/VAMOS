@@ -332,9 +332,9 @@ def get_dns_server():
 def run_speed_test():
     """Run a speed test with improved accuracy and fair testing conditions"""
     try:
-        # Initialize speedtest with longer timeout and specific configuration
+        # Initialize speedtest with shorter timeout
         st = speedtest.Speedtest(secure=True)
-        st.timeout = 25  # Set maximum timeout to 25 seconds
+        st.timeout = 15  # Reduced timeout to 15 seconds
         
         # Get list of servers and find closest ones
         print("Getting server list...")
@@ -344,45 +344,25 @@ def run_speed_test():
         
         # Configuration for faster testing
         THREADS = 4  # Keep threads for accuracy
-        SAMPLES = 2  # Reduced from 3 to 2 samples for faster testing
-        DELAY = 0.3  # Reduced from 0.5 to 0.3 seconds delay
+        SAMPLES = 1  # Single sample for speed
+        DELAY = 0.1  # Minimal delay
         
         # Measure download with consistent settings
         print("Testing download speed...")
-        download_samples = []
-        for _ in range(SAMPLES):
-            sample = st.download(threads=THREADS,
-                               callback=lambda current, total, start=None, end=None: None) / 1_000_000  # Convert to Mbps
-            download_samples.append(sample)
-            time.sleep(DELAY)  # Shorter delay between samples
-            
-        # Use median of download samples
-        download_samples.sort()
-        download = download_samples[0]  # Use first sample instead of median for speed
+        download = st.download(threads=THREADS,
+                             callback=lambda current, total, start=None, end=None: None) / 1_000_000  # Convert to Mbps
         
-        # Wait shorter time before upload test
-        time.sleep(DELAY/2)  # Reduced wait time
+        # Minimal wait before upload test
+        time.sleep(DELAY)
         
         # Measure upload with identical settings
         print("Testing upload speed...")
-        upload_samples = []
-        for _ in range(SAMPLES):
-            sample = st.upload(threads=THREADS,
-                             pre_allocate=False,
-                             callback=lambda current, total, start=None, end=None: None) / 1_000_000  # Convert to Mbps
-            upload_samples.append(sample)
-            time.sleep(DELAY)  # Shorter delay between samples
-            
-        # Use median of upload samples
-        upload_samples.sort()
-        upload = upload_samples[0]  # Use first sample instead of median for speed
+        upload = st.upload(threads=THREADS,
+                         pre_allocate=False,
+                         callback=lambda current, total, start=None, end=None: None) / 1_000_000  # Convert to Mbps
         
-        # Get ping with fewer samples
-        ping_samples = []
-        for _ in range(1):  # Reduced from 2 to 1 sample
-            ping_samples.append(st.results.ping)
-            time.sleep(DELAY/4)  # Even shorter delay for ping tests
-        ping = sum(ping_samples) / len(ping_samples)
+        # Get ping
+        ping = st.results.ping
         
         # Validate results
         if download < 0 or upload < 0 or ping < 0:
@@ -390,7 +370,7 @@ def run_speed_test():
             
         # Apply correction factors to account for overhead and protocol inefficiencies
         DOWNLOAD_OVERHEAD = 0.85  # 15% reduction for network overhead
-        UPLOAD_OVERHEAD = 0.45  # 55% reduction for upload overhead (TCP/IP headers, retransmissions, etc.)
+        UPLOAD_OVERHEAD = 0.80  # 20% reduction for upload overhead (reduced from 55%)
         download = download * DOWNLOAD_OVERHEAD
         upload = upload * UPLOAD_OVERHEAD
             

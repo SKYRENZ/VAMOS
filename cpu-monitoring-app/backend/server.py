@@ -62,8 +62,8 @@ def background_updater():
             # Update network data
             update_network_data()
             
-            # Wait shorter time for more responsive updates
-            for _ in range(5):  # Check stop_thread every second instead of only after full sleep
+            # Wait 30 seconds before next update
+            for _ in range(30):  # Check stop_thread every second
                 if stop_thread:
                     break
                 time.sleep(1)
