@@ -35,6 +35,7 @@ from network_info import (
     update_network_data,
     clear_history
 )
+from pydantic import BaseModel
 
 app = FastAPI()
 print(app.routes)
@@ -50,6 +51,9 @@ app.add_middleware(
 # Start background network data update thread
 update_thread = None
 stop_thread = False
+
+class PlanRequest(BaseModel):
+    plan: str  # SCHEME_MIN or SCHEME_MAX
 
 def background_updater():
     """Background thread to update network data periodically"""
@@ -417,3 +421,30 @@ async def get_gpu_stats_endpoint():
 @app.get("/battery")
 def battery_status():
     return JSONResponse(content=batteryinfo.get_battery_info())
+
+
+# Map of power plans with human-readable names (case-sensitive)
+power_plans = {
+    "High Performance": "SCHEME_MIN",
+    "Power Saver": "SCHEME_MAX",
+    "Balanced": "381b4222-f694-41f0-9685-ff5bb260df2e",
+    "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c": "SCHEME_MIN",  # high
+    "a1841308-3541-4fab-bc81-f71556f20b4a": "SCHEME_MAX",  # power saver
+    "381b4222-f694-41f0-9685-ff5bb260df2e": "381b4222-f694-41f0-9685-ff5bb260df2e",  # balanced
+}
+
+@app.post("/set_power_plan")
+def set_power_plan(req: PlanRequest):
+    # Get the selected plan value from the request (it should be in human-readable form)
+    selected_plan = power_plans.get(req.plan, req.plan)  # Fallback to GUID if not found in the dictionary
+
+    try:
+        subprocess.run(["powercfg", "/setactive", selected_plan], check=True)
+        return {"message": f"Switched to {req.plan}"}
+    except subprocess.CalledProcessError as e:
+        return {"error": str(e)}
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    print("Shutting down cleanly...")
