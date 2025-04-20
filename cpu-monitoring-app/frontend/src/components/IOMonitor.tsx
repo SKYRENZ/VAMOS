@@ -45,38 +45,59 @@ const IOMonitor: React.FC<IOMonitorProps> = ({
                 </h5>
 
                 <div className="row">
-                    <div className="col-md-6 mb-4">
+                    <div className="col-md-12 mb-4">
                         <div className="io-stat-card p-3 rounded" style={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}>
-                            <h6 className="mb-3" style={{ color: '#00FF00' }}>Upload Statistics</h6>
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                                <span style={{ color: '#CCCCCC' }}>Speed</span>
-                                <span style={{ color: '#00FF00' }}>{formatSpeed(uploadSpeed)}</span>
-                            </div>
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                                <span style={{ color: '#CCCCCC' }}>Packets</span>
-                                <span style={{ color: '#00FF00' }}>{uploadPackets} pkt/s</span>
-                            </div>
-                            <div className="d-flex justify-content-between align-items-center">
-                                <span style={{ color: '#CCCCCC' }}>Total Sent</span>
-                                <span style={{ color: '#00FF00' }}>{formatBytes(bytesSent)}</span>
-                            </div>
-                        </div>
-                    </div>
+                            <h6 className="mb-3" style={{ color: '#00FF00' }}>Network Traffic Summary</h6>
 
-                    <div className="col-md-6 mb-4">
-                        <div className="io-stat-card p-3 rounded" style={{ backgroundColor: '#1a1a1a', border: '1px solid #333' }}>
-                            <h6 className="mb-3" style={{ color: '#00FF00' }}>Download Statistics</h6>
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                                <span style={{ color: '#CCCCCC' }}>Speed</span>
-                                <span style={{ color: '#00FF00' }}>{formatSpeed(downloadSpeed)}</span>
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                                <div style={{ width: '48%' }}>
+                                    <div className="d-flex justify-content-between align-items-center mb-2">
+                                        <span style={{ color: '#CCCCCC' }}>Upload</span>
+                                        <span style={{ color: '#00FF00' }}>{formatSpeed(uploadSpeed)}</span>
+                                    </div>
+                                    <div className="progress" style={{ height: '10px', backgroundColor: '#333333' }}>
+                                        <div
+                                            className="progress-bar"
+                                            style={{
+                                                width: `${Math.min(100, (uploadSpeed / 100) * 100)}%`,
+                                                backgroundColor: '#33CCFF'
+                                            }}
+                                        ></div>
+                                    </div>
+                                </div>
+
+                                <div style={{ width: '48%' }}>
+                                    <div className="d-flex justify-content-between align-items-center mb-2">
+                                        <span style={{ color: '#CCCCCC' }}>Download</span>
+                                        <span style={{ color: '#00FF00' }}>{formatSpeed(downloadSpeed)}</span>
+                                    </div>
+                                    <div className="progress" style={{ height: '10px', backgroundColor: '#333333' }}>
+                                        <div
+                                            className="progress-bar"
+                                            style={{
+                                                width: `${Math.min(100, (downloadSpeed / 100) * 100)}%`,
+                                                backgroundColor: '#00FF00'
+                                            }}
+                                        ></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                                <span style={{ color: '#CCCCCC' }}>Packets</span>
-                                <span style={{ color: '#00FF00' }}>{downloadPackets} pkt/s</span>
-                            </div>
-                            <div className="d-flex justify-content-between align-items-center">
-                                <span style={{ color: '#CCCCCC' }}>Total Received</span>
-                                <span style={{ color: '#00FF00' }}>{formatBytes(bytesReceived)}</span>
+
+                            <div className="row mt-4">
+                                <div className="col-md-6">
+                                    <div className="text-center p-3" style={{ backgroundColor: '#151515', borderRadius: '8px' }}>
+                                        <div style={{ color: '#CCCCCC', fontSize: '0.9rem', marginBottom: '5px' }}>Total Data Sent</div>
+                                        <div style={{ color: '#33CCFF', fontSize: '1.4rem', fontWeight: 'bold' }}>{formatBytes(bytesSent)}</div>
+                                        <div style={{ color: '#999999', fontSize: '0.8rem' }}>{uploadPackets.toLocaleString()} packets</div>
+                                    </div>
+                                </div>
+                                <div className="col-md-6">
+                                    <div className="text-center p-3" style={{ backgroundColor: '#151515', borderRadius: '8px' }}>
+                                        <div style={{ color: '#CCCCCC', fontSize: '0.9rem', marginBottom: '5px' }}>Total Data Received</div>
+                                        <div style={{ color: '#00FF00', fontSize: '1.4rem', fontWeight: 'bold' }}>{formatBytes(bytesReceived)}</div>
+                                        <div style={{ color: '#999999', fontSize: '0.8rem' }}>{downloadPackets.toLocaleString()} packets</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

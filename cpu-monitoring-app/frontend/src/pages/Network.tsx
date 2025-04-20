@@ -7,6 +7,8 @@ import CircularGaugeSpeedTest from '../components/CircularGaugeSpeedTest'
 import BandwidthUsageGraph from '../components/BandwidthUsageGraph'
 import ConnectionQualityMonitor from '../components/ConnectionQualityMonitor'
 import IOMonitor from '../components/IOMonitor'
+import DataTransferGraph from '../components/DataTransferGraph'
+import TotalDataTransfer from '../components/TotalDataTransfer'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 
@@ -87,6 +89,14 @@ interface BandwidthDataPoint {
   upload: number
 }
 
+interface DataTransferPoint {
+  timestamp: string;
+  totalBytesSent: number;
+  totalBytesReceived: number;
+  totalBytesSentFormatted: string;
+  totalBytesReceivedFormatted: string;
+}
+
 interface NetworkProps {
   networkState: {
     speedTestCompleted: boolean;
@@ -129,6 +139,13 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
   const [bandwidthHistory, setBandwidthHistory] = useState<BandwidthDataPoint[]>([])
   const [latencyHistory, setLatencyHistory] = useState<number[]>([])
   const [timeRange, setTimeRange] = useState<'5min' | '1hour' | '1day'>('5min')
+  const [dataTransferHistory, setDataTransferHistory] = useState<DataTransferPoint[]>([])
+  const [totalDataTransfer, setTotalDataTransfer] = useState({
+    totalSent: 0,
+    totalReceived: 0,
+    sentFormatted: "0 B",
+    receivedFormatted: "0 B"
+  })
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Fetch all network data
@@ -143,6 +160,18 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
       setConnectedDevices(data.connectedDevices)
       setBandwidthHistory(data.bandwidthHistory || [])
       setLatencyHistory(data.latencyHistory || [])
+      setDataTransferHistory(data.dataTransferHistory || [])
+      setTotalDataTransfer(data.totalDataTransfer ? {
+        totalSent: data.totalDataTransfer.sent,
+        totalReceived: data.totalDataTransfer.received,
+        sentFormatted: data.totalDataTransfer.sentFormatted,
+        receivedFormatted: data.totalDataTransfer.receivedFormatted
+      } : {
+        totalSent: 0,
+        totalReceived: 0,
+        sentFormatted: "0 B",
+        receivedFormatted: "0 B"
+      })
       setLastUpdated(new Date(data.lastUpdated))
       setError(null)
     } catch (err) {
@@ -161,6 +190,17 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
       setBandwidthHistory(data)
     } catch (err) {
       console.error('Error fetching bandwidth history:', err)
+    }
+  }
+
+  // Fetch data transfer history
+  const fetchDataTransferHistory = async () => {
+    try {
+      const response = await fetch(`${API_URL}/data-transfer-history?timeframe=${timeRange}`)
+      const data = await response.json()
+      setDataTransferHistory(data)
+    } catch (err) {
+      console.error('Error fetching data transfer history:', err)
     }
   }
 
@@ -221,9 +261,10 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
     }
   }, [])
 
-  // Fetch bandwidth history when time range changes
+  // Fetch bandwidth and data transfer history when time range changes
   useEffect(() => {
     fetchBandwidthHistory()
+    fetchDataTransferHistory()
   }, [timeRange])
 
   const getSignalQuality = (signal: number) => {
@@ -525,13 +566,13 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                     </div>
                   </div>
 
-                  <div className="col-12 px-3 fade-in delay-3"> {/* Added fade-in animation */}
+                  <div className="col-12 px-3 fade-in delay-3">
                     <div className="card border-0 shadow-lg" style={{ backgroundColor: '#121212' }}>
                       <div className="card-body">
                         <div className="d-flex justify-content-between align-items-center mb-3">
                           <h5 className="card-title mb-0" style={{ color: '#00FF00' }}>
                             <i className="fas fa-chart-area me-2"></i>
-                            Bandwidth Usage
+                            Network Usage
                           </h5>
                           <div className="time-range-buttons">
                             <button
@@ -570,14 +611,18 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                           </div>
                         </div>
                         {bandwidthHistory.length > 0 ? (
-                          <BandwidthUsageGraph bandwidthHistory={bandwidthHistory} timeRange={timeRange} />
+                          <BandwidthUsageGraph
+                            bandwidthHistory={bandwidthHistory}
+                            timeRange={timeRange}
+                            totalDataTransfer={totalDataTransfer}
+                          />
                         ) : (
                           <div className="text-center py-5" style={{ color: '#CCCCCC' }}>
                             <i className="fas fa-chart-area mb-3" style={{ fontSize: '2rem' }}></i>
                             <p>
                               {networkState.speedTestCompleted ?
-                                "No bandwidth data available yet. Data will appear as your connection is monitored." :
-                                "Run a speed test to start collecting bandwidth history data."}
+                                "No network data available yet. Data will appear as your connection is monitored." :
+                                "Run a speed test to start collecting network data."}
                             </p>
                           </div>
                         )}

@@ -20,7 +20,9 @@ network_cache = {
     "connected_devices": None,
     "last_updated": None,
     "io_data": None,
-    "first_speed_test_completed": False  # Add flag to track first speed test
+    "first_speed_test_completed": False,  # Add flag to track first speed test
+    "total_bytes_sent": 0,        # Track total bytes sent since app started
+    "total_bytes_received": 0     # Track total bytes received since app started
 }
 
 # Store bandwidth history (last 1 hour data, 5 min intervals)
@@ -29,6 +31,12 @@ ping_history = deque([], maxlen=20)  # Start empty, will be filled with real mea
 
 # Store Network IO history
 network_io_history = deque([], maxlen=60)  # Store 60 data points
+
+# Store data transfer history (for showing total data transferred over time)
+data_transfer_history = deque([], maxlen=288)  # Store up to 24 hours (at 5 min intervals)
+
+# Store the last net_io counters to measure full interval
+last_net_io_counters = None
 
 def get_mac_address():
     """Get the MAC address of the main interface"""
@@ -386,20 +394,20 @@ def run_speed_test():
         if download < 0 or upload < 0 or ping < 0:
             raise ValueError("Invalid negative speed values")
             
-        # Apply same correction factor to both speeds to account for overhead
-        OVERHEAD_FACTOR = 0.85  # 15% reduction for network overhead
-        download = download * OVERHEAD_FACTOR
-        upload = upload * OVERHEAD_FACTOR
+        # Apply different correction factors to account for overhead
+        DOWNLOAD_OVERHEAD_FACTOR = 0.85  # 15% reduction for download overhead
+        UPLOAD_OVERHEAD_FACTOR = 0.55    # 55% reduction for upload overhead
+        download = download * DOWNLOAD_OVERHEAD_FACTOR
+        upload = upload * UPLOAD_OVERHEAD_FACTOR
             
         # Additional sanity checks with same limits
         SPEED_LIMIT = 500  # Same limit for both upload and download
         if upload > SPEED_LIMIT or download > SPEED_LIMIT:
             raise ValueError("Unrealistic speed values detected")
             
-        # Normalize upload speed to a consistent range (35-45% of download)
-        # This better reflects typical ISP ratios
-        upload_ratio = 0.35 + (random.random() * 0.10)  # Random value between 0.35 and 0.45
-        upload = download * upload_ratio
+        # Remove artificial upload ratio - use real upload speed measurement
+        # upload_ratio = 0.35 + (random.random() * 0.10)  # Random value between 0.35 and 0.45
+        # upload = download * upload_ratio
         
         # Format server information more accurately
         city = best_server.get('city', '')
@@ -426,7 +434,6 @@ def run_speed_test():
         
         # Log the results for debugging
         logging.info(f"Speed test results - Download: {download:.1f} Mbps, Upload: {upload:.1f} Mbps, Ping: {ping:.0f} ms")
-        logging.info(f"Upload ratio used: {upload_ratio:.3f}")
         
         return {
             "download": round(download, 1),
@@ -517,29 +524,42 @@ def scan_network():
 def get_network_io():
     """Get network I/O statistics"""
     try:
-        # Get initial network I/O counters
-        net_io = psutil.net_io_counters()
-        time.sleep(1)  # Wait 1 second to measure
-        net_io_after = psutil.net_io_counters()
+        global last_net_io_counters
         
-        # Calculate bytes transferred and packet counts
-        bytes_sent = net_io_after.bytes_sent - net_io.bytes_sent
-        bytes_recv = net_io_after.bytes_recv - net_io.bytes_recv
-        packets_sent = net_io_after.packets_sent - net_io.packets_sent
-        packets_recv = net_io_after.packets_recv - net_io.packets_recv
+        # Get current network counters
+        current_net_io = psutil.net_io_counters()
+        
+        # If we have previous counters, calculate the difference over the full interval
+        if last_net_io_counters is not None:
+            # Calculate bytes transferred since the last check
+            bytes_sent = current_net_io.bytes_sent - last_net_io_counters.bytes_sent
+            bytes_recv = current_net_io.bytes_recv - last_net_io_counters.bytes_recv
+            packets_sent = current_net_io.packets_sent - last_net_io_counters.packets_sent
+            packets_recv = current_net_io.packets_recv - last_net_io_counters.packets_recv
+        else:
+            # First run, measure over a small interval
+            initial_net_io = current_net_io
+            time.sleep(1)  # Wait 1 second for initial measurement
+            after_net_io = psutil.net_io_counters()
+            bytes_sent = after_net_io.bytes_sent - initial_net_io.bytes_sent
+            bytes_recv = after_net_io.bytes_recv - initial_net_io.bytes_recv
+            packets_sent = after_net_io.packets_sent - initial_net_io.packets_sent
+            packets_recv = after_net_io.packets_recv - initial_net_io.packets_recv
         
         # Check if we have speed test data available
         upload_speed = 0
         download_speed = 0
         
         if network_cache["speed_test"] is not None and "error" not in network_cache["speed_test"]:
-            # Use speed test data for the speeds instead of 1-second measurement
+            # Use speed test data for the speeds instead of real-time measurement
             upload_speed = network_cache["speed_test"]["upload"]
             download_speed = network_cache["speed_test"]["download"]
         else:
-            # Fall back to real-time measurements if speed test data isn't available
-            upload_speed = bytes_sent * 8 / 1_000_000  # Convert to Mbps
-            download_speed = bytes_recv * 8 / 1_000_000  # Convert to Mbps
+            # Calculate speeds based on bytes transferred during the interval (approx 30 seconds)
+            # If last_net_io_counters is None, we're using a 1-second interval
+            interval_seconds = 30 if last_net_io_counters is not None else 1
+            upload_speed = bytes_sent * 8 / (1_000_000 * interval_seconds)  # Convert to Mbps
+            download_speed = bytes_recv * 8 / (1_000_000 * interval_seconds)  # Convert to Mbps
         
         # Get network interface details
         interfaces = psutil.net_if_stats()
@@ -569,12 +589,30 @@ def get_network_io():
 def update_network_data():
     """Update all network data"""
     try:
-        # Get network interfaces for bandwidth measurement
-        net_io = psutil.net_io_counters()
+        global last_net_io_counters
         
-        # Calculate current speeds
-        time.sleep(1)  # Wait 1 second to measure
-        net_io_after = psutil.net_io_counters()
+        # Get current network counters
+        current_net_io = psutil.net_io_counters()
+        
+        # If we have previous counters, calculate the difference
+        if last_net_io_counters is not None:
+            # Calculate bytes transferred since the last check (full interval)
+            bytes_sent = current_net_io.bytes_sent - last_net_io_counters.bytes_sent
+            bytes_received = current_net_io.bytes_recv - last_net_io_counters.bytes_recv
+        else:
+            # First run, just use a small sample
+            initial_net_io = current_net_io
+            time.sleep(1)  # Wait 1 second for initial measurement
+            after_net_io = psutil.net_io_counters()
+            bytes_sent = after_net_io.bytes_sent - initial_net_io.bytes_sent
+            bytes_received = after_net_io.bytes_recv - initial_net_io.bytes_recv
+        
+        # Save current counters for next interval
+        last_net_io_counters = current_net_io
+        
+        # Update cumulative totals
+        network_cache["total_bytes_sent"] += bytes_sent
+        network_cache["total_bytes_received"] += bytes_received
         
         # Check if we have speed test data available
         download_speed = 0
@@ -586,8 +624,8 @@ def update_network_data():
             upload_speed = network_cache["speed_test"]["upload"]
         else:
             # Fall back to real-time measurements if no speed test data
-            download_speed = (net_io_after.bytes_recv - net_io.bytes_recv) * 8 / 1_000_000  # Mbps
-            upload_speed = (net_io_after.bytes_sent - net_io.bytes_sent) * 8 / 1_000_000  # Mbps
+            download_speed = bytes_received * 8 / 1_000_000  # Mbps
+            upload_speed = bytes_sent * 8 / 1_000_000  # Mbps
         
         # Get hostname and IP
         hostname = socket.gethostname()
@@ -629,11 +667,23 @@ def update_network_data():
         
         # Add to bandwidth history only if first speed test completed
         if network_cache["first_speed_test_completed"]:
+            # Now tracking actual bytes transferred in this interval (not speeds)
             bandwidth_history.append({
                 "timestamp": datetime.now().isoformat(),
-                "download": round(download_speed, 1),
-                "upload": round(upload_speed, 1)
+                "download": bytes_received,  # Actual bytes downloaded in this interval
+                "upload": bytes_sent,        # Actual bytes uploaded in this interval
+                "downloadFormatted": format_bytes(bytes_received),
+                "uploadFormatted": format_bytes(bytes_sent)
             })
+            
+            # Add to data transfer history every 5 minutes
+            current_time = datetime.now()
+            if not data_transfer_history or (current_time - datetime.fromisoformat(data_transfer_history[-1]["timestamp"])).total_seconds() >= 300:
+                data_transfer_history.append({
+                    "timestamp": current_time.isoformat(),
+                    "totalBytesSent": network_cache["total_bytes_sent"],
+                    "totalBytesReceived": network_cache["total_bytes_received"]
+                })
         
         # Update Network IO data
         network_cache["io_data"] = get_network_io()
@@ -709,6 +759,42 @@ def clear_history():
     ping_history.clear()
     print("History data cleared")
 
+def get_data_transfer_history(timeframe="5min"):
+    """Get data transfer history for specified timeframe"""
+    now = datetime.now()
+    
+    if timeframe == "5min":
+        # Last 5 minutes of data
+        cutoff = now - timedelta(minutes=5)
+    elif timeframe == "1hour":
+        # Last hour of data
+        cutoff = now - timedelta(hours=1)
+    elif timeframe == "1day":
+        # Last day of data
+        cutoff = now - timedelta(days=1)
+    else:
+        # Default to all available data
+        cutoff = now - timedelta(days=100)
+    
+    filtered_data = [item for item in data_transfer_history if datetime.fromisoformat(item["timestamp"]) >= cutoff]
+    
+    # Format data sizes to be more readable
+    for item in filtered_data:
+        item["totalBytesSentFormatted"] = format_bytes(item["totalBytesSent"])
+        item["totalBytesReceivedFormatted"] = format_bytes(item["totalBytesReceived"])
+    
+    return filtered_data
+
+def format_bytes(size_bytes):
+    """Format bytes to human-readable format"""
+    if size_bytes == 0:
+        return "0 B"
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return f"{s} {size_name[i]}"
+
 def get_all_network_data():
     """Get all consolidated network data"""
     if network_cache["network_data"] is None:
@@ -719,13 +805,31 @@ def get_all_network_data():
     cutoff = now - timedelta(minutes=5)
     recent_bandwidth = [item for item in bandwidth_history if datetime.fromisoformat(item["timestamp"]) >= cutoff]
     
+    # Get data transfer history for last 5 minutes
+    recent_data_transfer = get_data_transfer_history("5min")
+    
+    # Calculate total bytes directly from bandwidth history for accuracy
+    total_bytes_received = sum(item["download"] for item in bandwidth_history)
+    total_bytes_sent = sum(item["upload"] for item in bandwidth_history)
+    
+    # Format the calculated totals
+    total_received_formatted = format_bytes(total_bytes_received)
+    total_sent_formatted = format_bytes(total_bytes_sent)
+    
     return {
         "networkData": network_cache["network_data"],
         "connectedDevices": network_cache["connected_devices"],
         "bandwidthHistory": recent_bandwidth,
         "latencyHistory": list(ping_history),
         "ioData": network_cache["io_data"],
-        "lastUpdated": network_cache["last_updated"]
+        "lastUpdated": network_cache["last_updated"],
+        "dataTransferHistory": recent_data_transfer,
+        "totalDataTransfer": {
+            "sent": total_bytes_sent,
+            "received": total_bytes_received,
+            "sentFormatted": total_sent_formatted,
+            "receivedFormatted": total_received_formatted
+        }
     }
 
 # Initialize update function
