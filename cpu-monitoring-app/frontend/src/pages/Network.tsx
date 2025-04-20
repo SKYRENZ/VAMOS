@@ -87,6 +87,8 @@ interface BandwidthDataPoint {
   timestamp: string
   download: number
   upload: number
+  downloadFormatted?: string
+  uploadFormatted?: string
 }
 
 interface DataTransferPoint {
@@ -147,6 +149,98 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
     receivedFormatted: "0 B"
   })
   const contentRef = useRef<HTMLDivElement>(null);
+  const [showExportDropdown, setShowExportDropdown] = useState<boolean>(false);
+  const exportButtonRef = useRef<HTMLDivElement>(null);
+
+  // Handle clicking outside the dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportButtonRef.current && !exportButtonRef.current.contains(event.target as Node)) {
+        setShowExportDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Export functions
+  const exportAsPDF = async () => {
+    if (contentRef.current) {
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        logging: false,
+        backgroundColor: '#000000'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = canvas.height * imgWidth / canvas.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`network-monitor-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    }
+    setShowExportDropdown(false);
+  };
+
+  const exportAsJPG = async () => {
+    if (contentRef.current) {
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        logging: false,
+        backgroundColor: '#000000'
+      });
+
+      const link = document.createElement('a');
+      link.download = `network-monitor-report-${new Date().toISOString().split('T')[0]}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 0.8);
+      link.click();
+    }
+    setShowExportDropdown(false);
+  };
+
+  const exportAsJSON = () => {
+    // Create a simplified version of bandwidthHistory with only the fields we have
+    const simplifiedBandwidthHistory = bandwidthHistory.map(item => ({
+      timestamp: item.timestamp,
+      download: item.download,
+      upload: item.upload
+    }));
+
+    const jsonData = {
+      networkData,
+      ioData,
+      bandwidthHistory: simplifiedBandwidthHistory,
+      latencyHistory,
+      speedTestData: networkState.speedTestData,
+      totalDataTransfer,
+      lastUpdated: lastUpdated?.toISOString(),
+      exportDate: new Date().toISOString()
+    };
+
+    const dataStr = JSON.stringify(jsonData, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
+    const exportFileName = `network-monitor-data-${new Date().toISOString().split('T')[0]}.json`;
+
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileName);
+    linkElement.click();
+    setShowExportDropdown(false);
+  };
+
+  const toggleExportDropdown = () => {
+    setShowExportDropdown(!showExportDropdown);
+  };
 
   // Fetch all network data
   const fetchData = async () => {
@@ -344,15 +438,74 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
             marginBottom: '2rem',
             position: 'relative'
           }}>
-            <div className="d-flex justify-content-center align-items-center">
+            <div className="d-flex justify-content-between align-items-center">
               <h1 style={{
                 color: '#ffff',
                 fontWeight: 'bold',
                 margin: 0,
                 fontSize: '1.5rem',
                 letterSpacing: '0.05em',
-                textAlign: 'center'
               }}>NETWORK MONITOR</h1>
+
+              <div className="position-relative" style={{ zIndex: 1000 }} ref={exportButtonRef}>
+                <button
+                  className="btn btn-sm"
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: '#00FF00',
+                    border: '1px solid #00FF00',
+                    borderRadius: '4px',
+                    padding: '6px 12px',
+                    fontWeight: 'bold'
+                  }}
+                  onClick={toggleExportDropdown}
+                >
+                  <i className="fas fa-download me-2"></i>
+                  Export Data
+                </button>
+
+                {showExportDropdown && (
+                  <div className="position-absolute end-0 mt-1" style={{
+                    backgroundColor: '#121212',
+                    border: '1px solid #333333',
+                    borderRadius: '4px',
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                    width: '150px',
+                    overflow: 'hidden'
+                  }}>
+                    <button
+                      className="btn btn-sm w-100 text-start"
+                      style={{ color: '#FFFFFF', padding: '8px 12px', transition: 'all 0.2s ease' }}
+                      onClick={exportAsPDF}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <i className="far fa-file-pdf me-2" style={{ color: '#ff4444' }}></i>
+                      PDF
+                    </button>
+                    <button
+                      className="btn btn-sm w-100 text-start"
+                      style={{ color: '#FFFFFF', padding: '8px 12px', transition: 'all 0.2s ease' }}
+                      onClick={exportAsJPG}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <i className="far fa-file-image me-2" style={{ color: '#44aaff' }}></i>
+                      JPG
+                    </button>
+                    <button
+                      className="btn btn-sm w-100 text-start"
+                      style={{ color: '#FFFFFF', padding: '8px 12px', transition: 'all 0.2s ease' }}
+                      onClick={exportAsJSON}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      <i className="far fa-file-code me-2" style={{ color: '#ffaa44' }}></i>
+                      JSON
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
