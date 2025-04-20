@@ -444,7 +444,12 @@ def set_power_plan(req: PlanRequest):
     except subprocess.CalledProcessError as e:
         return {"error": str(e)}
 
+@app.get("/power_consumption")
+def power_consumption_status():
+    return JSONResponse(content=batteryinfo.get_power_consumption())
 
 @app.on_event("shutdown")
 async def shutdown_event():
     print("Shutting down cleanly...")
+
+

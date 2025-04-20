@@ -35,6 +35,7 @@ def get_charging_status():
 # Function to get system power usage (CPU power usage for this example)
 def get_system_power_usage():
     try:
+        # Placeholder for CPU power usage calculation (will return percentage)
         power_usage = psutil.cpu_percent(interval=1)  # CPU power usage percentage
         return power_usage
     except Exception as e:
@@ -47,6 +48,24 @@ def get_battery_discharge_rate():
         return battery.secsleft if battery else "No battery detected"
     except Exception as e:
         return f"Error: {str(e)}"
+
+# Function to get power consumption data (CPU and GPU)
+def get_power_consumption():
+    try:
+        power_data = {
+            "timestamp": datetime.now().timestamp(),  # Current time in timestamp
+            "cpu_power": psutil.cpu_percent(interval=1),  # CPU power usage (percentage)
+            "gpu_power": None,  # Placeholder, as GPU power data can vary
+            "status": "success"
+        }
+        
+        # Add logic for getting GPU power if available (may need additional libraries for GPU)
+        # For now, it's a placeholder
+        # Example for GPU data: power_data["gpu_power"] = get_gpu_power()  # If a method to get GPU power is available
+        
+        return power_data
+    except Exception as e:
+        return {"error": f"An error occurred while fetching power consumption data: {str(e)}"}
 
 # Function to get battery information including system uptime and other details
 def get_battery_info():
@@ -72,3 +91,7 @@ def get_battery_info():
 @app.get("/battery")
 def battery_status():
     return JSONResponse(content=get_battery_info())
+
+@app.get("/power_consumption")
+def power_consumption_status():
+    return JSONResponse(content=get_power_consumption())

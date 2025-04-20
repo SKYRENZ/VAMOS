@@ -4,6 +4,8 @@ import { useState, useEffect } from "react"
 import "./custom.css"
 import ChargerConnected from "../assets/Charger.gif"
 import SpeedTestNotification from '../components/SpeedTestNotification'
+import PowerConsumptionGraph from '../components/PowerConsumptionGraph'
+
 
 interface SpeedTestResult {
   download: number;
@@ -74,7 +76,7 @@ const handleModeChange = async (mode: string) => {
   setSelectedMode(mode);
 
   try {
-    const response = await fetch("http://localhost:8000/set_power_plan", {
+    const response = await fetch("http://localhost:5000/set_power_plan", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -244,7 +246,7 @@ const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
       </div>
 
       {/* Battery Info */}
-      <div style={{ height: "60vh", display: "flex", justifyContent: "center" }}>
+      <div style={{ height: "50vh", display: "flex", justifyContent: "center" }}>
       <div className="battery-info mt-5 w-full text-center" style={{ backgroundColor: "#121212", width: "90%", height: "35vh", padding: "2rem", borderRadius: "8px" }}>
           <div className="info-row flex justify-between" style={{ display: "flex", marginBottom: "1rem", fontSize: "2vw", color: "#00ff00", }}>
             <div style={{ flex: 1, textAlign: "left" }}><strong>Battery Information</strong></div>
@@ -267,6 +269,14 @@ const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
           </div>
         </div>
       </div>
+
+      <div className="w-full flex justify-center mt-6">
+  <div className="w-full max-w-5xl bg-[#1e1e1e] p-6 rounded-lg shadow-lg" style={{ height: "80vh" }}>
+    <h2 className="text-xl text-[#00ff00] mb-4"style={{ marginLeft: "5%", color:"#00FF00"}}>Power Consumption History</h2>
+    <PowerConsumptionGraph />
+  </div>
+</div>
+
 
       {/* Speed Test Notification */}
       {networkState && <SpeedTestNotification networkState={networkState} />}

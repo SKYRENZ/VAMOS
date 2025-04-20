@@ -573,10 +573,10 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                               Connection Type
                             </span>
                             <span style={{ color: '#FFFFFF', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                              {networkData?.connectionType === "Wi-Fi" ?
+                              {networkData?.connectionType === "wi-fi" ?
                                 "Wi-Fi" :
                                 networkData?.connectionType === "Ethernet" ?
-                                  "Ethernet" : "Unknown"}
+                                  "Ethernet" : "Wi-Fi"}
                               <div style={{ color: '#CCCCCC', fontSize: '0.85rem', textAlign: 'right', marginTop: '2px' }}>
                                 {networkData?.connectionType === "Ethernet" ?
                                   "Wired Connection" :
