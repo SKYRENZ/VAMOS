@@ -19,6 +19,7 @@ from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetTemperatur
 import random
 import wmi
 import subprocess
+from gaming_mode import router as gaming_mode_router
 from typing import Optional
 from collections import deque
 from disk_info import get_disk_data
@@ -417,3 +418,6 @@ async def get_gpu_stats_endpoint():
 @app.get("/battery")
 def battery_status():
     return JSONResponse(content=batteryinfo.get_battery_info())
+
+
+app.include_router(gaming_mode_router)
