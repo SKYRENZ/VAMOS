@@ -5,11 +5,11 @@ import { PieChart, Pie, Cell } from "recharts"
 import "bootstrap/dist/css/bootstrap.min.css"
 import "./custom.css" // For custom styling on top of Bootstrap
 import StorageInfo from "../components/StorageInfo" // Import the StorageInfo component
-import { UsageBar } from "../components/UsageBar"
 import useMemoryData from "../hooks/useMemoryData" // Import the custom hook for memory data
 import SystemSpecs from "../components/SystemSpecs"
 import SpeedTestNotification from "../components/SpeedTestNotification"
 import GamingMode from "../components/GamingMode"
+import VamosHeader from "../components/VamosHeader"
 
 const RADIAN = Math.PI / 180
 const cx = 150
@@ -35,7 +35,15 @@ const generateData = () =>
     color: generateColor(i),
   }))
 
-const needle = (value: number, cx: number, cy: number, iR: number, oR: number, color: string | undefined) => {
+const needle = (
+  value: number,
+  cx: number,
+  cy: number,
+  iR: number,
+  oR: number,
+  color: string | undefined,
+  isGamingMode: boolean,
+) => {
   const ang = 180 - (value * 180) / 100
   const length = (iR + 2 * oR) / 3
   const sin = Math.sin(-RADIAN * ang)
@@ -51,12 +59,21 @@ const needle = (value: number, cx: number, cy: number, iR: number, oR: number, c
   const yp = y0 + length * sin
 
   return [
-    <circle cx={x0} cy={y0} r={r} fill={color} stroke="none" key="needle-circle" />,
+    <circle
+      cx={x0}
+      cy={y0}
+      r={r}
+      fill={isGamingMode ? "url(#rgbGradient)" : color}
+      stroke="none"
+      key="needle-circle"
+      className={isGamingMode ? "rgb-needle" : ""}
+    />,
     <path
       d={`M${xba} ${yba}L${xbb} ${ybb} L${xp} ${yp} L${xba} ${yba}`}
       stroke="none"
-      fill={color}
+      fill={isGamingMode ? "url(#rgbGradient)" : color}
       key="needle-path"
+      className={isGamingMode ? "rgb-needle" : ""}
     />,
   ]
 }
@@ -68,35 +85,53 @@ interface GaugeChartProps {
 }
 
 const GaugeChart = ({ title, value, isGamingMode }: GaugeChartProps) => (
-  <div className={`card bg-dark text-white mb-4 gauge-card ${isGamingMode ? "rgb-border" : ""}`}>
-    <div className="card-body text-center">
-      <h5 className="card-title">{title}</h5>
-      <div className="gauge-chart">
-        <PieChart width={300} height={300}>
-          <Pie
-            dataKey="value"
-            startAngle={180}
-            endAngle={0}
-            data={generateData()}
-            cx={cx}
-            cy={cy + 10}
-            innerRadius={iR}
-            outerRadius={oR}
-            stroke="none"
-          >
-            {generateData().map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-          </Pie>
-          {needle(value, cx, cy + 10, iR, oR, "#00ff00")}
-          <text x={cx} y={cy + 50} textAnchor="middle" dominantBaseline="middle" className="gauge-value">
-            {value}
-          </text>
-          <text x={cx} y={cy + 75} textAnchor="middle" dominantBaseline="middle" className="gauge-percent">
-            %
-          </text>
-        </PieChart>
-      </div>
+  <div className="gauge-card">
+    <h5 className="gauge-title">{title}</h5>
+    <div className="gauge-chart">
+      <PieChart width={300} height={250}>
+        <defs>
+          <linearGradient id="rgbGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ff0000">
+              <animate
+                attributeName="stop-color"
+                values="#ff0000; #ffff00; #00ff00; #00ffff; #0000ff; #ff00ff; #ff0000"
+                dur="5s"
+                repeatCount="indefinite"
+              />
+            </stop>
+            <stop offset="100%" stopColor="#ff00ff">
+              <animate
+                attributeName="stop-color"
+                values="#ff00ff; #ff0000; #ffff00; #00ff00; #00ffff; #0000ff; #ff00ff"
+                dur="5s"
+                repeatCount="indefinite"
+              />
+            </stop>
+          </linearGradient>
+        </defs>
+        <Pie
+          dataKey="value"
+          startAngle={180}
+          endAngle={0}
+          data={generateData()}
+          cx={150}
+          cy={150}
+          innerRadius={100}
+          outerRadius={140}
+          stroke="none"
+        >
+          {generateData().map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={entry.color} />
+          ))}
+        </Pie>
+        {needle(value, 150, 150, 100, 140, "#00ff00", isGamingMode)}
+        <text x={150} y={150} textAnchor="middle" dominantBaseline="middle" className="gauge-value">
+          {value}
+        </text>
+        <text x={150} y={175} textAnchor="middle" dominantBaseline="middle" className="gauge-percent">
+          %
+        </text>
+      </PieChart>
     </div>
   </div>
 )
@@ -172,30 +207,22 @@ const TemperatureBar = ({ isGamingMode }: TemperatureBarProps) => {
   }, [])
 
   return (
-    <div className={`card bg-dark text-white ${isGamingMode ? "rgb-border" : ""}`}>
-      <div className="card-body">
-        <h5 className="card-title mb-3">
-          Temperature {isUsingMockData && <span className="badge bg-warning text-dark">Mock</span>}
-        </h5>
-        <ul className="list-group list-group-flush">
-          <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-            <span>CPU Temperature</span>
-            <span className={cpuTemp > 80 ? "text-danger" : "text-success"}>{cpuTemp} °C</span>
-          </li>
-          <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-            <span>GPU Temperature</span>
-            <span className={gpuTemp > 80 ? "text-danger" : "text-success"}>{gpuTemp} °C</span>
-          </li>
-
-          <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-            <span>GPU Clock</span>
-            <span className="text-success">{gpuStats.gpu_clock_speed} MHz</span>
-          </li>
-          <li className="list-group-item d-flex justify-content-between align-items-center bg-dark text-white border-secondary">
-            <span>VRAM Clock</span>
-            <span className="text-success">{gpuStats.vram_clock_speed} MHz</span>
-          </li>
-        </ul>
+    <div className="temp-info">
+      <div className="info-row">
+        <span>CPU Temperature</span>
+        <span className={cpuTemp > 80 ? "text-danger" : "text-success"}>{cpuTemp} °C</span>
+      </div>
+      <div className="info-row">
+        <span>GPU Temperature</span>
+        <span className={gpuTemp > 80 ? "text-danger" : "text-success"}>{gpuTemp} °C</span>
+      </div>
+      <div className="info-row">
+        <span>GPU Clock</span>
+        <span className="text-success">{gpuStats.gpu_clock_speed} MHz</span>
+      </div>
+      <div className="info-row">
+        <span>VRAM Clock</span>
+        <span className="text-success">{gpuStats.vram_clock_speed} MHz</span>
       </div>
     </div>
   )
@@ -231,6 +258,7 @@ const Home = ({ networkState }: HomeProps) => {
   const [gpuUsage, setGpuUsage] = useState(30)
   const { memory, error: memoryError } = useMemoryData()
   const [isGamingModeActive, setIsGamingModeActive] = useState(false)
+  const [isGamingMode, setIsGamingMode] = useState(false)
 
   useEffect(() => {
     const fetchUsageData = async () => {
@@ -268,6 +296,7 @@ const Home = ({ networkState }: HomeProps) => {
         if (response.ok) {
           const data = await response.json()
           setIsGamingModeActive(data.gaming_mode)
+          setIsGamingMode(data.gaming_mode)
         }
       } catch (err) {
         console.error("Failed to fetch gaming mode status:", err)
@@ -280,105 +309,108 @@ const Home = ({ networkState }: HomeProps) => {
   }, [])
 
   return (
-    <div className={`bg-black text-white min-vh-100 ${isGamingModeActive ? "gaming-mode-dashboard" : ""}`}>
+    <div className={`dashboard ${isGamingModeActive ? "gaming-mode-dashboard" : ""}`}>
       <div className="dashboard-header">
-        <div className="container-fluid">
-          <div className="row align-items-center">
-            <div className="col-md-6">
-              <h1 className="m-0">SYSTEM MONITOR</h1>
-            </div>
-            <div className="col-md-6">
-              <div className="d-flex justify-content-md-end justify-content-start mt-3 mt-md-0">
-                <GamingMode className={isGamingModeActive ? "gaming-mode-glow rgb-border" : ""} />
-              </div>
-            </div>
-          </div>
+        <h1>Monitor</h1>
+        <div className="gaming-mode-container">
+          <GamingMode className={isGamingModeActive ? "gaming-mode-glow" : ""} />
         </div>
       </div>
 
-      <div className="container-fluid py-4">
-        <h2 className="section-title mb-4">Monitor</h2>
+      {/* Vamos header moved here, between the header and content */}
+      <div className="vamos-header-container">
+        <VamosHeader isGamingMode={isGamingModeActive} />
+      </div>
 
-        <div className="row">
-          <div className="col-lg-4 mb-4">
-            <GaugeChart title="CPU Usage" value={cpuUsage} isGamingMode={isGamingModeActive} />
-            <GaugeChart title="GPU Usage" value={gpuUsage} isGamingMode={isGamingModeActive} />
+      <div className="dashboard-content">
+        {/* Top row - CPU and GPU gauges only */}
+        <div className="top-row">
+          <div className={`rgb-border-container ${isGamingModeActive ? "active" : ""}`}>
+            <div className="gauge-container">
+              <GaugeChart title="CPU Usage" value={cpuUsage} isGamingMode={isGamingModeActive} />
+            </div>
+          </div>
+          <div className={`rgb-border-container ${isGamingModeActive ? "active" : ""}`}>
+            <div className="gauge-container">
+              <GaugeChart title="GPU Usage" value={gpuUsage} isGamingMode={isGamingModeActive} />
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom row - System specs, Storage+Temperature, Memory */}
+        <div className="bottom-row">
+          <div className={`rgb-border-container ${isGamingModeActive ? "active" : ""}`}>
+            <div className="info-card card-hover">
+              <h5 className="info-title">System</h5>
+              <SystemSpecs />
+            </div>
           </div>
 
-          <div className="col-lg-4 mb-4">
-            {memoryError ? (
-              <div className="text-danger">Error: {memoryError}</div>
-            ) : memory ? (
-              <>
-                <div className={`card bg-dark text-white mb-4 ${isGamingModeActive ? "rgb-border" : ""}`}>
-                  <div className="card-body">
-                    <UsageBar
-                      title="Memory Usage"
-                      value={Number.parseFloat(((memory.used / memory.total) * 100).toFixed(1))} // Fix: Convert string to number
-                      color="#00cc00"
-                    />
-                    <div className="mt-3">
-                      <ul className="list-group list-group-flush">
-                        <li className="list-group-item bg-dark text-white border-secondary">
-                          <div className="d-flex justify-content-between">
-                            <span>Total</span>
-                            <span>{(memory.total / 1024 / 1024 / 1024).toFixed(1)} GB</span>
-                          </div>
-                        </li>
-                        <li className="list-group-item bg-dark text-white border-secondary">
-                          <div className="d-flex justify-content-between">
-                            <span>Used</span>
-                            <span>{(memory.used / 1024 / 1024 / 1024).toFixed(1)} GB</span>
-                          </div>
-                        </li>
-                        <li className="list-group-item bg-dark text-white border-secondary">
-                          <div className="d-flex justify-content-between">
-                            <span>Available</span>
-                            <span>{(memory.available / 1024 / 1024 / 1024).toFixed(1)} GB</span>
-                          </div>
-                        </li>
-                        <li className="list-group-item bg-dark text-white border-secondary">
-                          <div className="d-flex justify-content-between">
-                            <span>Cached</span>
-                            <span>{(memory.cached / 1024 / 1024 / 1024).toFixed(1)} GB</span>
-                          </div>
-                        </li>
-                      </ul>
+          <div className={`rgb-border-container ${isGamingModeActive ? "active" : ""}`}>
+            <div className="info-card card-hover">
+              <h5 className="info-title">Storage & Temperature</h5>
+              <div className="combined-info">
+                <div className="storage-section">
+                  <StorageInfo />
+                </div>
+                <div className="temperature-section">
+                  <TemperatureBar isGamingMode={isGamingModeActive} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`rgb-border-container ${isGamingModeActive ? "active" : ""}`}>
+            <div className="info-card">
+              <h5 className="info-title">Memory</h5>
+              {memoryError ? (
+                <div className="text-danger">Error: {memoryError}</div>
+              ) : memory ? (
+                <>
+                  <div className="usage-section">
+                    <div className="usage-header">
+                      <span className="usage-percent">
+                        {Number.parseFloat(((memory.used / memory.total) * 100).toFixed(0))}%
+                      </span>
+                    </div>
+                    <div className="usage-bar-container">
+                      <div className="usage-bar-bg">
+                        <div
+                          className="usage-bar-fill memory"
+                          style={{ width: `${((memory.used / memory.total) * 100).toFixed(0)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                    <div className="memory-details">
+                      <div className="info-row">
+                        <span>Total</span>
+                        <span>{(memory.total / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+                      </div>
+                      <div className="info-row">
+                        <span>Used</span>
+                        <span>{(memory.used / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+                      </div>
+                      <div className="info-row">
+                        <span>Available</span>
+                        <span>{(memory.available / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+                      </div>
+                      <div className="info-row">
+                        <span>Cached</span>
+                        <span>{(memory.cached / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </>
-            ) : (
-              <div>Loading...</div>
-            )}
-          </div>
-
-          <div className="col-lg-4">
-            <div className="row">
-              <div className="col-12 mb-4">
-                <div className={`card bg-dark text-white ${isGamingModeActive ? "rgb-border" : ""}`}>
-                  <div className="card-body">
-                    <SystemSpecs />
-                  </div>
-                </div>
-              </div>
-              <div className="col-12 mb-4">
-                <div className={`card bg-dark text-white ${isGamingModeActive ? "rgb-border" : ""}`}>
-                  <div className="card-body">
-                    <StorageInfo />
-                  </div>
-                </div>
-              </div>
-              <div className="col-12">
-                <TemperatureBar isGamingMode={isGamingModeActive} />
-              </div>
+                </>
+              ) : (
+                <div>Loading...</div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {networkState && (
-        <div className={`${isGamingModeActive ? "rgb-border" : ""}`}>
+        <div className={`network-state-container ${isGamingModeActive ? "rgb-border" : ""}`}>
           <SpeedTestNotification networkState={networkState} />
         </div>
       )}
