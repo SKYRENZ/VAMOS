@@ -1,16 +1,15 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useRef } from "react"
 import "./custom.css"
-import { Tooltip } from 'react-tooltip'
-import CircularGaugeSpeedTest from '../components/CircularGaugeSpeedTest'
-import BandwidthUsageGraph from '../components/BandwidthUsageGraph'
-import ConnectionQualityMonitor from '../components/ConnectionQualityMonitor'
-import IOMonitor from '../components/IOMonitor'
-import DataTransferGraph from '../components/DataTransferGraph'
-import TotalDataTransfer from '../components/TotalDataTransfer'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
+import CircularGaugeSpeedTest from "../components/CircularGaugeSpeedTest"
+import BandwidthUsageGraph from "../components/BandwidthUsageGraph"
+import ConnectionQualityMonitor from "../components/ConnectionQualityMonitor"
+import IOMonitor from "../components/IOMonitor"
+import html2canvas from "html2canvas"
+import jsPDF from "jspdf"
 
 // Add CSS for animations
 const animationStyles = `
@@ -34,9 +33,9 @@ const animationStyles = `
 .delay-3 {
   animation-delay: 0.5s;
 }
-`;
+`
 
-const API_URL = 'http://localhost:5000/api'
+const API_URL = "http://localhost:5000/api"
 
 interface NetworkData {
   connectionType: string
@@ -92,40 +91,42 @@ interface BandwidthDataPoint {
 }
 
 interface DataTransferPoint {
-  timestamp: string;
-  totalBytesSent: number;
-  totalBytesReceived: number;
-  totalBytesSentFormatted: string;
-  totalBytesReceivedFormatted: string;
+  timestamp: string
+  totalBytesSent: number
+  totalBytesReceived: number
+  totalBytesSentFormatted: string
+  totalBytesReceivedFormatted: string
 }
 
 interface NetworkProps {
   networkState: {
-    speedTestCompleted: boolean;
-    speedTestData: SpeedTestResult | null;
-    isRunningSpeedTest: boolean;
-    scanProgress: number;
-    currentPhase: string;
-    error: string | null;
-    dataReady: boolean;
-  };
-  setNetworkState: React.Dispatch<React.SetStateAction<{
-    speedTestCompleted: boolean;
-    speedTestData: SpeedTestResult | null;
-    isRunningSpeedTest: boolean;
-    scanProgress: number;
-    currentPhase: string;
-    error: string | null;
-    dataReady: boolean;
-  }>>;
-  onRunSpeedTest: () => Promise<void>;
+    speedTestCompleted: boolean
+    speedTestData: SpeedTestResult | null
+    isRunningSpeedTest: boolean
+    scanProgress: number
+    currentPhase: string
+    error: string | null
+    dataReady: boolean
+  }
+  setNetworkState: React.Dispatch<
+    React.SetStateAction<{
+      speedTestCompleted: boolean
+      speedTestData: SpeedTestResult | null
+      isRunningSpeedTest: boolean
+      scanProgress: number
+      currentPhase: string
+      error: string | null
+      dataReady: boolean
+    }>
+  >
+  onRunSpeedTest: () => Promise<void>
 }
 
 // Add a global variable to store the background fetch interval
-let backgroundFetchInterval: number | null = null;
+let backgroundFetchInterval: number | null = null
 
 // Add a variable to track if we need a quick refresh after initial test
-let needsInitialQuickRefresh = false;
+let needsInitialQuickRefresh = false
 
 export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: NetworkProps) => {
   const [networkData, setNetworkData] = useState<NetworkData | null>({
@@ -139,7 +140,7 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
     stability: 0,
     ipAddress: "Not available",
     dnsServer: "Not available",
-    macAddress: "Not available"
+    macAddress: "Not available",
   })
   const [ioData, setIOData] = useState<IOData | null>({
     uploadSpeed: 0,
@@ -148,7 +149,7 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
     downloadPackets: 0,
     activeInterfaces: [],
     bytesSent: 0,
-    bytesReceived: 0
+    bytesReceived: 0,
   })
   const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -156,32 +157,55 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
   const [error, setError] = useState<string | null>(null)
   const [bandwidthHistory, setBandwidthHistory] = useState<BandwidthDataPoint[]>([])
   const [latencyHistory, setLatencyHistory] = useState<number[]>([])
-  const [timeRange, setTimeRange] = useState<'5min' | '1hour' | '1day'>('5min')
+  const [timeRange, setTimeRange] = useState<"5min" | "1hour" | "1day">("5min")
   const [dataTransferHistory, setDataTransferHistory] = useState<DataTransferPoint[]>([])
   const [totalDataTransfer, setTotalDataTransfer] = useState({
     totalSent: 0,
     totalReceived: 0,
     sentFormatted: "0 B",
-    receivedFormatted: "0 B"
+    receivedFormatted: "0 B",
   })
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [showExportDropdown, setShowExportDropdown] = useState<boolean>(false);
-  const exportButtonRef = useRef<HTMLDivElement>(null);
-  const [initialRefreshDone, setInitialRefreshDone] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [showExportDropdown, setShowExportDropdown] = useState<boolean>(false)
+  const exportButtonRef = useRef<HTMLDivElement>(null)
+  const [initialRefreshDone, setInitialRefreshDone] = useState(false)
+  const [isGamingMode, setIsGamingMode] = useState(false)
+
+  // Check gaming mode status
+  useEffect(() => {
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5000"
+    const apiUrl = `${API_BASE_URL}/gaming-mode`
+
+    const fetchGamingModeStatus = async () => {
+      try {
+        const response = await fetch(`${apiUrl}/status`)
+        if (response.ok) {
+          const data = await response.json()
+          setIsGamingMode(data.gaming_mode)
+        }
+      } catch (err) {
+        console.error("Failed to fetch gaming mode status:", err)
+      }
+    }
+
+    fetchGamingModeStatus()
+    const interval = setInterval(fetchGamingModeStatus, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Handle clicking outside the dropdown to close it
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (exportButtonRef.current && !exportButtonRef.current.contains(event.target as Node)) {
-        setShowExportDropdown(false);
+        setShowExportDropdown(false)
       }
-    };
+    }
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside)
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+      document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [])
 
   // Export functions
   const exportAsPDF = async () => {
@@ -189,48 +213,48 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
       const canvas = await html2canvas(contentRef.current, {
         scale: 2,
         logging: false,
-        backgroundColor: '#000000'
-      });
+        backgroundColor: "#000000",
+      })
 
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL("image/png")
       const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      })
 
-      const imgWidth = 210; // A4 width in mm
-      const imgHeight = canvas.height * imgWidth / canvas.width;
+      const imgWidth = 210 // A4 width in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
 
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`network-monitor-report-${new Date().toISOString().split('T')[0]}.pdf`);
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight)
+      pdf.save(`network-monitor-report-${new Date().toISOString().split("T")[0]}.pdf`)
     }
-    setShowExportDropdown(false);
-  };
+    setShowExportDropdown(false)
+  }
 
   const exportAsJPG = async () => {
     if (contentRef.current) {
       const canvas = await html2canvas(contentRef.current, {
         scale: 2,
         logging: false,
-        backgroundColor: '#000000'
-      });
+        backgroundColor: "#000000",
+      })
 
-      const link = document.createElement('a');
-      link.download = `network-monitor-report-${new Date().toISOString().split('T')[0]}.jpg`;
-      link.href = canvas.toDataURL('image/jpeg', 0.8);
-      link.click();
+      const link = document.createElement("a")
+      link.download = `network-monitor-report-${new Date().toISOString().split("T")[0]}.jpg`
+      link.href = canvas.toDataURL("image/jpeg", 0.8)
+      link.click()
     }
-    setShowExportDropdown(false);
-  };
+    setShowExportDropdown(false)
+  }
 
   const exportAsJSON = () => {
     // Create a simplified version of bandwidthHistory with only the fields we have
-    const simplifiedBandwidthHistory = bandwidthHistory.map(item => ({
+    const simplifiedBandwidthHistory = bandwidthHistory.map((item) => ({
       timestamp: item.timestamp,
       download: item.download,
-      upload: item.upload
-    }));
+      upload: item.upload,
+    }))
 
     const jsonData = {
       networkData,
@@ -240,129 +264,135 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
       speedTestData: networkState.speedTestData,
       totalDataTransfer,
       lastUpdated: lastUpdated?.toISOString(),
-      exportDate: new Date().toISOString()
-    };
+      exportDate: new Date().toISOString(),
+    }
 
-    const dataStr = JSON.stringify(jsonData, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+    const dataStr = JSON.stringify(jsonData, null, 2)
+    const dataUri = "data:application/json;charset=utf-8," + encodeURIComponent(dataStr)
 
-    const exportFileName = `network-monitor-data-${new Date().toISOString().split('T')[0]}.json`;
+    const exportFileName = `network-monitor-data-${new Date().toISOString().split("T")[0]}.json`
 
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileName);
-    linkElement.click();
-    setShowExportDropdown(false);
-  };
+    const linkElement = document.createElement("a")
+    linkElement.setAttribute("href", dataUri)
+    linkElement.setAttribute("download", exportFileName)
+    linkElement.click()
+    setShowExportDropdown(false)
+  }
 
   const toggleExportDropdown = () => {
-    setShowExportDropdown(!showExportDropdown);
-  };
+    setShowExportDropdown(!showExportDropdown)
+  }
 
   // Use effect to watch for speed test completion and trigger a quick refresh
   useEffect(() => {
     // Watch for when speed test completes
     if (networkState.speedTestCompleted && !initialRefreshDone) {
-      console.log("Speed test just completed - scheduling quick refresh");
-      needsInitialQuickRefresh = true;
+      console.log("Speed test just completed - scheduling quick refresh")
+      needsInitialQuickRefresh = true
 
       // Immediate fetch to show data right away
-      fetchData();
+      fetchData()
 
       // Set a quick 10-second refresh to get the most recent data after test
       const quickRefreshTimeout = setTimeout(() => {
-        console.log("Running quick 10-second refresh after speed test");
-        fetchData();
-        setInitialRefreshDone(true);
-      }, 10000);
+        console.log("Running quick 10-second refresh after speed test")
+        fetchData()
+        setInitialRefreshDone(true)
+      }, 10000)
 
-      return () => clearTimeout(quickRefreshTimeout);
+      return () => clearTimeout(quickRefreshTimeout)
     }
-  }, [networkState.speedTestCompleted]);
+  }, [networkState.speedTestCompleted])
 
   // Initial data fetch and set up refresh interval
   useEffect(() => {
     // Fetch on mount
-    fetchData();
+    fetchData()
 
     // Set up global interval for background fetching if not already running
     if (!backgroundFetchInterval) {
-      console.log("Setting up background fetch interval");
-      backgroundFetchInterval = window.setInterval(fetchData, 30000);
+      console.log("Setting up background fetch interval")
+      backgroundFetchInterval = window.setInterval(fetchData, 30000)
     }
 
     // Cleanup function
     return () => {
       // Don't clear the interval here to allow background data collection
       // Only clear history when component is unmounted
-      fetch(`${API_URL}/clear-history`).catch(err =>
-        console.error('Error clearing history:', err)
-      );
-    };
-  }, []);
+      fetch(`${API_URL}/clear-history`).catch((err) => console.error("Error clearing history:", err))
+    }
+  }, [])
 
   // Function to force an immediate data refresh
   const forceRefresh = () => {
-    fetchData();
-  };
+    fetchData()
+  }
 
   // Modify fetchData to update UI immediately after speed test
   const fetchData = async () => {
     try {
-      setIsLoading(true);
-      const response = await fetch(`${API_URL}/all`);
-      const data = await response.json();
+      setIsLoading(true)
+      const response = await fetch(`${API_URL}/all`)
+      const data = await response.json()
 
-      setNetworkData(data.networkData);
-      setIOData(data.ioData);
-      setConnectedDevices(data.connectedDevices);
-      setBandwidthHistory(data.bandwidthHistory || []);
-      setLatencyHistory(data.latencyHistory || []);
-      setDataTransferHistory(data.dataTransferHistory || []);
-      setTotalDataTransfer(data.totalDataTransfer ? {
-        totalSent: data.totalDataTransfer.sent,
-        totalReceived: data.totalDataTransfer.received,
-        sentFormatted: data.totalDataTransfer.sentFormatted,
-        receivedFormatted: data.totalDataTransfer.receivedFormatted
-      } : {
-        totalSent: 0,
-        totalReceived: 0,
-        sentFormatted: "0 B",
-        receivedFormatted: "0 B"
-      });
-      setLastUpdated(new Date(data.lastUpdated));
-      setError(null);
+      setNetworkData(data.networkData)
+      setIOData(data.ioData)
+      setConnectedDevices(data.connectedDevices)
+      setBandwidthHistory(data.bandwidthHistory || [])
+      setLatencyHistory(data.latencyHistory || [])
+      setDataTransferHistory(data.dataTransferHistory || [])
+      setTotalDataTransfer(
+        data.totalDataTransfer
+          ? {
+              totalSent: data.totalDataTransfer.sent,
+              totalReceived: data.totalDataTransfer.received,
+              sentFormatted: data.totalDataTransfer.sentFormatted,
+              receivedFormatted: data.totalDataTransfer.receivedFormatted,
+            }
+          : {
+              totalSent: 0,
+              totalReceived: 0,
+              sentFormatted: "0 B",
+              receivedFormatted: "0 B",
+            },
+      )
+      setLastUpdated(new Date(data.lastUpdated))
+      setError(null)
 
       // If we just finished a speed test, make sure to show data immediately
       if (networkState.speedTestCompleted && !networkState.dataReady) {
-        console.log("Speed test completed - updating UI immediately");
-        setNetworkState(prev => ({
+        console.log("Speed test completed - updating UI immediately")
+        setNetworkState((prev) => ({
           ...prev,
-          dataReady: true
-        }));
+          dataReady: true,
+        }))
       }
 
       // Even if speed test hasn't been run yet, save the data for when it is
-      if (!networkState.speedTestCompleted && !networkState.dataReady &&
-        data.bandwidthHistory && data.bandwidthHistory.length > 0) {
-        console.log("Collecting background data before initial speed test");
+      if (
+        !networkState.speedTestCompleted &&
+        !networkState.dataReady &&
+        data.bandwidthHistory &&
+        data.bandwidthHistory.length > 0
+      ) {
+        console.log("Collecting background data before initial speed test")
 
         // If we have substantial data, auto-show it without requiring a speed test
         // (e.g., after 5 data points, which would be ~2.5 minutes at 30s intervals)
         if (data.bandwidthHistory.length >= 5) {
-          setNetworkState(prev => ({
+          setNetworkState((prev) => ({
             ...prev,
-            dataReady: true
-          }));
+            dataReady: true,
+          }))
         }
       }
     } catch (err) {
-      console.error('Error fetching network data:', err);
-      setError('Failed to fetch network data. Make sure the Python backend is running.');
+      console.error("Error fetching network data:", err)
+      setError("Failed to fetch network data. Make sure the Python backend is running.")
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   // Fetch bandwidth history
   const fetchBandwidthHistory = async () => {
@@ -371,7 +401,7 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
       const data = await response.json()
       setBandwidthHistory(data)
     } catch (err) {
-      console.error('Error fetching bandwidth history:', err)
+      console.error("Error fetching bandwidth history:", err)
     }
   }
 
@@ -382,12 +412,12 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
       const data = await response.json()
       setDataTransferHistory(data)
     } catch (err) {
-      console.error('Error fetching data transfer history:', err)
+      console.error("Error fetching data transfer history:", err)
     }
   }
 
   // Handle time range change for bandwidth graph
-  const handleTimeRangeChange = (newRange: '5min' | '1hour' | '1day') => {
+  const handleTimeRangeChange = (newRange: "5min" | "1hour" | "1day") => {
     setTimeRange(newRange)
   }
 
@@ -396,12 +426,12 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
     return () => {
       // Clear the interval only when the app is completely closed
       if (backgroundFetchInterval) {
-        console.log("Clearing background fetch interval");
-        window.clearInterval(backgroundFetchInterval);
-        backgroundFetchInterval = null;
+        console.log("Clearing background fetch interval")
+        window.clearInterval(backgroundFetchInterval)
+        backgroundFetchInterval = null
       }
-    };
-  }, []);
+    }
+  }, [])
 
   // Fetch bandwidth and data transfer history when time range changes
   useEffect(() => {
@@ -429,26 +459,27 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
   }
 
   const getDeviceIcon = (deviceName: string) => {
-    const name = deviceName.toLowerCase();
-    if (name.includes("router")) return "fa-wifi";
-    if (name.includes("phone") || name.includes("mobile") || name.includes("android") || name.includes("iphone")) return "fa-mobile-alt";
-    if (name.includes("this device")) return "fa-desktop";
-    return "fa-laptop";
+    const name = deviceName.toLowerCase()
+    if (name.includes("router")) return "fa-wifi"
+    if (name.includes("phone") || name.includes("mobile") || name.includes("android") || name.includes("iphone"))
+      return "fa-mobile-alt"
+    if (name.includes("this device")) return "fa-desktop"
+    return "fa-laptop"
   }
 
   if (error) {
     return (
-      <div className="page-content" style={{ backgroundColor: '#000000' }}>
+      <div className="page-content" style={{ backgroundColor: "#000000" }}>
         <div className="error-container">
-          <h2 style={{ color: '#FFFFFF' }}>Error</h2>
-          <p style={{ color: '#CCCCCC' }}>{error}</p>
+          <h2 style={{ color: "#FFFFFF" }}>Error</h2>
+          <p style={{ color: "#CCCCCC" }}>{error}</p>
           <button
             className="btn"
             onClick={fetchData}
             style={{
-              backgroundColor: 'transparent',
-              color: '#00FF00',
-              border: '1px solid #00FF00'
+              backgroundColor: "transparent",
+              color: "#00FF00",
+              border: "1px solid #00FF00",
             }}
           >
             Retry
@@ -461,50 +492,90 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
   const quality = getSignalQuality(networkData?.signalStrength || 0)
 
   return (
-    <div className="page-content d-flex flex-column min-vh-100" style={{
-      backgroundColor: '#000000',
-      width: '100vw',
-      overflowX: 'hidden'
-    }}>
+    <div
+      className={`page-content d-flex flex-column min-vh-100 ${isGamingMode ? "gaming-mode-dashboard" : ""}`}
+      style={{
+        backgroundColor: "#000000",
+        width: "100vw",
+        overflowX: "hidden",
+      }}
+    >
       <style>{animationStyles}</style>
+
+      {/* RGB Gradient Definition for Gaming Mode */}
+      <svg style={{ position: "absolute", width: 0, height: 0 }}>
+        <defs>
+          <linearGradient id="rgbGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#ff0000">
+              <animate
+                attributeName="stop-color"
+                values="#ff0000; #ffff00; #00ff00; #00ffff; #0000ff; #ff00ff; #ff0000"
+                dur="5s"
+                repeatCount="indefinite"
+              />
+            </stop>
+            <stop offset="100%" stopColor="#ff00ff">
+              <animate
+                attributeName="stop-color"
+                values="#ff00ff; #ff0000; #ffff00; #00ff00; #00ffff; #0000ff; #ff00ff"
+                dur="5s"
+                repeatCount="indefinite"
+              />
+            </stop>
+          </linearGradient>
+        </defs>
+      </svg>
 
       {/* Main content container */}
       <div className="d-flex flex-column align-items-center w-100">
         {/* Capture container */}
-        <div className="capture-container" ref={contentRef} style={{
-          width: '100%',
-          maxWidth: '1200px',
-          margin: '0 auto',
-          backgroundColor: '#000000',
-          padding: '0 40px 20px 40px'
-        }}>
+        <div
+          className="capture-container"
+          ref={contentRef}
+          style={{
+            width: "100%",
+            maxWidth: "1200px",
+            margin: "0 auto",
+            backgroundColor: "#000000",
+            padding: "0 40px 20px 40px",
+          }}
+        >
           {/* Header */}
-          <div className="mb-4" style={{
-            background: 'linear-gradient(to right, rgba(0, 255, 0, 0.15), transparent 80%)',
-            borderBottom: '1px solid rgba(0, 255, 0, 0.3)',
-            padding: '1.5rem 20px',
-            marginBottom: '2rem',
-            position: 'relative'
-          }}>
+          <div
+            className="mb-4"
+            style={{
+              background: isGamingMode
+                ? "linear-gradient(to right, rgba(255, 0, 255, 0.15), transparent 80%)"
+                : "linear-gradient(to right, rgba(0, 255, 0, 0.15), transparent 80%)",
+              borderBottom: isGamingMode ? "1px solid rgba(255, 0, 255, 0.3)" : "1px solid rgba(0, 255, 0, 0.3)",
+              padding: "1.5rem 20px",
+              marginBottom: "2rem",
+              position: "relative",
+            }}
+          >
             <div className="d-flex justify-content-between align-items-center">
-              <h1 style={{
-                color: '#ffff',
-                fontWeight: 'bold',
-                margin: 0,
-                fontSize: '1.5rem',
-                letterSpacing: '0.05em',
-              }}>NETWORK MONITOR</h1>
+              <h1
+                style={{
+                  color: isGamingMode ? "#ff00ff" : "#ffff",
+                  fontWeight: "bold",
+                  margin: 0,
+                  fontSize: "1.5rem",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                NETWORK MONITOR
+              </h1>
 
               <div className="position-relative" style={{ zIndex: 1000 }} ref={exportButtonRef}>
                 <button
                   className="btn btn-sm"
                   style={{
-                    backgroundColor: 'transparent',
-                    color: '#00FF00',
-                    border: '1px solid #00FF00',
-                    borderRadius: '4px',
-                    padding: '6px 12px',
-                    fontWeight: 'bold'
+                    backgroundColor: "transparent",
+                    color: isGamingMode ? "#ff00ff" : "#00FF00",
+                    border: isGamingMode ? "1px solid #ff00ff" : "1px solid #00FF00",
+                    borderRadius: "4px",
+                    padding: "6px 12px",
+                    fontWeight: "bold",
                   }}
                   onClick={toggleExportDropdown}
                 >
@@ -513,42 +584,45 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                 </button>
 
                 {showExportDropdown && (
-                  <div className="position-absolute end-0 mt-1" style={{
-                    backgroundColor: '#121212',
-                    border: '1px solid #333333',
-                    borderRadius: '4px',
-                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                    width: '150px',
-                    overflow: 'hidden'
-                  }}>
+                  <div
+                    className="position-absolute end-0 mt-1"
+                    style={{
+                      backgroundColor: "#121212",
+                      border: "1px solid #333333",
+                      borderRadius: "4px",
+                      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.2)",
+                      width: "150px",
+                      overflow: "hidden",
+                    }}
+                  >
                     <button
                       className="btn btn-sm w-100 text-start"
-                      style={{ color: '#FFFFFF', padding: '8px 12px', transition: 'all 0.2s ease' }}
+                      style={{ color: "#FFFFFF", padding: "8px 12px", transition: "all 0.2s ease" }}
                       onClick={exportAsPDF}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2a2a2a")}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                     >
-                      <i className="far fa-file-pdf me-2" style={{ color: '#ff4444' }}></i>
+                      <i className="far fa-file-pdf me-2" style={{ color: "#ff4444" }}></i>
                       PDF
                     </button>
                     <button
                       className="btn btn-sm w-100 text-start"
-                      style={{ color: '#FFFFFF', padding: '8px 12px', transition: 'all 0.2s ease' }}
+                      style={{ color: "#FFFFFF", padding: "8px 12px", transition: "all 0.2s ease" }}
                       onClick={exportAsJPG}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2a2a2a")}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                     >
-                      <i className="far fa-file-image me-2" style={{ color: '#44aaff' }}></i>
+                      <i className="far fa-file-image me-2" style={{ color: "#44aaff" }}></i>
                       JPG
                     </button>
                     <button
                       className="btn btn-sm w-100 text-start"
-                      style={{ color: '#FFFFFF', padding: '8px 12px', transition: 'all 0.2s ease' }}
+                      style={{ color: "#FFFFFF", padding: "8px 12px", transition: "all 0.2s ease" }}
                       onClick={exportAsJSON}
-                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
-                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      onMouseOver={(e) => (e.currentTarget.style.backgroundColor = "#2a2a2a")}
+                      onMouseOut={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                     >
-                      <i className="far fa-file-code me-2" style={{ color: '#ffaa44' }}></i>
+                      <i className="far fa-file-code me-2" style={{ color: "#ffaa44" }}></i>
                       JSON
                     </button>
                   </div>
@@ -558,23 +632,28 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
           </div>
 
           {/* Dashboard Content */}
-          <div className="dashboard-content" style={{ padding: '0 20px' }}>
+          <div className="dashboard-content" style={{ padding: "0 20px" }}>
             <div className="row g-4 mx-0">
               {/* Speed Test Section */}
               <div className="col-12 px-0">
-                <div className="card border-0 shadow-lg" style={{
-                  backgroundColor: '#121212',
-                  ...((!networkState.speedTestCompleted && !networkState.dataReady) && {
-                    maxWidth: '900px',
-                    margin: '2rem auto'
-                  })
-                }}>
+                <div
+                  className={`card border-0 shadow-lg ${isGamingMode ? "rgb-border-container active" : ""}`}
+                  style={{
+                    backgroundColor: "#121212",
+                    position: "relative",
+                    ...(!networkState.speedTestCompleted &&
+                      !networkState.dataReady && {
+                        maxWidth: "900px",
+                        margin: "2rem auto",
+                      }),
+                  }}
+                >
                   <div className="card-body">
-                    <h5 className="card-title mb-3" style={{ color: '#00FF00' }}>
+                    <h5 className="card-title mb-3" style={{ color: isGamingMode ? "#ff00ff" : "#00FF00" }}>
                       <i className="fas fa-tachometer-alt me-2"></i>
                       Speed Test
                       {!networkState.speedTestCompleted && !networkState.dataReady && (
-                        <small style={{ color: '#CCCCCC', fontSize: '0.8rem', marginLeft: '10px' }}>
+                        <small style={{ color: "#CCCCCC", fontSize: "0.8rem", marginLeft: "10px" }}>
                           Run a speed test to see all network data
                         </small>
                       )}
@@ -592,54 +671,79 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
 
                     {networkState.isRunningSpeedTest && (
                       <div className="test-server-info mt-3 text-center">
-                        <p style={{ color: '#CCCCCC', fontSize: '0.9rem' }}>
+                        <p style={{ color: "#CCCCCC", fontSize: "0.9rem" }}>
                           <i className="fas fa-spinner fa-spin me-2"></i>
                           {networkState.currentPhase} ({Math.round(networkState.scanProgress)}%)
                         </p>
                       </div>
                     )}
 
-                    {!networkState.isRunningSpeedTest && networkState.speedTestData && networkState.speedTestData.server && (
-                      <div className="test-server-info mt-3 text-center">
-                        <p style={{ color: '#CCCCCC', fontSize: '0.9rem' }}>
-                          <i className="fas fa-server me-2"></i>
-                          {networkState.speedTestData.server.name && (
-                            <>
-                              Test Server: <span style={{ color: '#66FF66' }}>{networkState.speedTestData.server.name}</span>
-                              <br />
-                            </>
-                          )}
-                          {networkState.speedTestData.server.location && networkState.speedTestData.server.location !== "Unknown" && (
-                            <>
-                              Location: <span style={{ color: '#66FF66' }}>{networkState.speedTestData.server.location}</span>
-                              <br />
-                            </>
-                          )}
-                          {networkState.speedTestData.server.sponsor && networkState.speedTestData.server.sponsor !== "Unknown" && (
-                            <>
-                              Host: <span style={{ color: '#66FF66' }}>{networkState.speedTestData.server.sponsor}</span>
-                              <br />
-                            </>
-                          )}
-                          <small>
-                            {networkState.speedTestData.server.distance && (
-                              <>Distance: <span style={{ color: '#66FF66' }}>{networkState.speedTestData.server.distance}</span> • </>
+                    {!networkState.isRunningSpeedTest &&
+                      networkState.speedTestData &&
+                      networkState.speedTestData.server && (
+                        <div className="test-server-info mt-3 text-center">
+                          <p style={{ color: "#CCCCCC", fontSize: "0.9rem" }}>
+                            <i className="fas fa-server me-2"></i>
+                            {networkState.speedTestData.server.name && (
+                              <>
+                                Test Server:{" "}
+                                <span style={{ color: isGamingMode ? "#ff00ff" : "#66FF66" }}>
+                                  {networkState.speedTestData.server.name}
+                                </span>
+                                <br />
+                              </>
                             )}
-                            Latency: <span style={{ color: '#66FF66' }}>{networkState.speedTestData.server.latency.toFixed(2)} ms</span>
-                          </small>
-                        </p>
-                      </div>
-                    )}
+                            {networkState.speedTestData.server.location &&
+                              networkState.speedTestData.server.location !== "Unknown" && (
+                                <>
+                                  Location:{" "}
+                                  <span style={{ color: isGamingMode ? "#ff00ff" : "#66FF66" }}>
+                                    {networkState.speedTestData.server.location}
+                                  </span>
+                                  <br />
+                                </>
+                              )}
+                            {networkState.speedTestData.server.sponsor &&
+                              networkState.speedTestData.server.sponsor !== "Unknown" && (
+                                <>
+                                  Host:{" "}
+                                  <span style={{ color: isGamingMode ? "#ff00ff" : "#66FF66" }}>
+                                    {networkState.speedTestData.server.sponsor}
+                                  </span>
+                                  <br />
+                                </>
+                              )}
+                            <small>
+                              {networkState.speedTestData.server.distance && (
+                                <>
+                                  Distance:{" "}
+                                  <span style={{ color: isGamingMode ? "#ff00ff" : "#66FF66" }}>
+                                    {networkState.speedTestData.server.distance}
+                                  </span>{" "}
+                                  •{" "}
+                                </>
+                              )}
+                              Latency:{" "}
+                              <span style={{ color: isGamingMode ? "#ff00ff" : "#66FF66" }}>
+                                {networkState.speedTestData.server.latency.toFixed(2)} ms
+                              </span>
+                            </small>
+                          </p>
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>
 
               {(networkState.speedTestCompleted || networkState.dataReady) && (
                 <>
-                  <div className="col-lg-6 px-3 fade-in delay-1"> {/* Added fade-in animation */}
-                    <div className="card border-0 shadow-lg h-100" style={{ backgroundColor: '#121212' }}>
+                  <div className="col-lg-6 px-3 fade-in delay-1">
+                    <div
+                      className={`card border-0 shadow-lg h-100 ${isGamingMode ? "rgb-border-container active" : ""}`}
+                      style={{ backgroundColor: "#121212", position: "relative" }}
+                    >
                       <div className="card-body">
-                        <h5 className="card-title mb-3" style={{ color: '#00FF00' }}>
+                        <h5 className="card-title mb-3" style={{ color: isGamingMode ? "#ff00ff" : "#00FF00" }}>
                           <i className="fas fa-chart-line me-2"></i>
                           Connection Quality
                         </h5>
@@ -655,106 +759,156 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                     </div>
                   </div>
 
-                  <div className="col-lg-6 px-3 fade-in delay-2"> {/* Added fade-in animation */}
-                    <div className="card border-0 shadow-lg h-100" style={{ backgroundColor: '#121212' }}>
+                  <div className="col-lg-6 px-3 fade-in delay-2">
+                    <div
+                      className={`card border-0 shadow-lg h-100 ${isGamingMode ? "rgb-border-container active" : ""}`}
+                      style={{ backgroundColor: "#121212", position: "relative" }}
+                    >
                       <div className="card-body">
-                        <h5 className="card-title mb-3" style={{ color: '#00FF00' }}>
+                        <h5 className="card-title mb-3" style={{ color: isGamingMode ? "#ff00ff" : "#00FF00" }}>
                           <i className="fas fa-network-wired me-2"></i>
                           Network Performance
                         </h5>
 
                         <ul className="list-group list-group-flush">
-                          <li className="list-group-item d-flex justify-content-between align-items-center"
+                          <li
+                            className="list-group-item d-flex justify-content-between align-items-center"
                             style={{
-                              backgroundColor: '#1a1a1a',
-                              borderColor: '#333333',
-                              borderWidth: '0',
-                              padding: '15px 12px',
-                              marginBottom: '8px'
-                            }}>
-                            <span style={{ color: '#00FF00', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                              <i className={`fas ${networkData?.connectionType === "Wi-Fi" ? "fa-wifi" : "fa-ethernet"} me-2`}></i>
+                              backgroundColor: "#1a1a1a",
+                              borderColor: "#333333",
+                              borderWidth: "0",
+                              padding: "15px 12px",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            <span
+                              style={{
+                                color: isGamingMode ? "#ff00ff" : "#00FF00",
+                                fontSize: "1.2rem",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              <i
+                                className={`fas ${networkData?.connectionType === "Wi-Fi" ? "fa-wifi" : "fa-ethernet"} me-2`}
+                              ></i>
                               Connection Type
                             </span>
-                            <span style={{ color: '#FFFFFF', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                              {networkData?.connectionType === "wi-fi" ?
-                                "Wi-Fi" :
-                                networkData?.connectionType === "Ethernet" ?
-                                  "Ethernet" : "Wi-Fi"}
-                              <div style={{ color: '#CCCCCC', fontSize: '0.85rem', textAlign: 'right', marginTop: '2px' }}>
-                                {networkData?.connectionType === "Ethernet" ?
-                                  "Wired Connection" :
-                                  "Wireless Connection"}
+                            <span style={{ color: "#FFFFFF", fontSize: "1.2rem", fontWeight: "bold" }}>
+                              {networkData?.connectionType === "wi-fi"
+                                ? "Wi-Fi"
+                                : networkData?.connectionType === "Ethernet"
+                                  ? "Ethernet"
+                                  : "Wi-Fi"}
+                              <div
+                                style={{ color: "#CCCCCC", fontSize: "0.85rem", textAlign: "right", marginTop: "2px" }}
+                              >
+                                {networkData?.connectionType === "Ethernet"
+                                  ? "Wired Connection"
+                                  : "Wireless Connection"}
                               </div>
                             </span>
                           </li>
-                          <li className="list-group-item d-flex justify-content-between align-items-center border-secondary "
-                            style={{ backgroundColor: '#121212', borderColor: '#333333', borderWidth: '0' }}>
-                            <span style={{ color: '#CCCCCC' }}>
+                          <li
+                            className="list-group-item d-flex justify-content-between align-items-center border-secondary "
+                            style={{ backgroundColor: "#121212", borderColor: "#333333", borderWidth: "0" }}
+                          >
+                            <span style={{ color: "#CCCCCC" }}>
                               <i className="fas fa-stopwatch me-2"></i>
                               Current Ping
                             </span>
-                            <span style={{ color: '#00FF00' }}>{networkData?.ping || 0} <small style={{ color: '#CCCCCC' }}>ms</small></span>
+                            <span style={{ color: isGamingMode ? "#ff00ff" : "#00FF00" }}>
+                              {networkData?.ping || 0} <small style={{ color: "#CCCCCC" }}>ms</small>
+                            </span>
                           </li>
                           {networkState.speedTestData && (
-                            <li className="list-group-item d-flex justify-content-between align-items-center"
-                              style={{ backgroundColor: '#121212', borderColor: '#333333', borderWidth: '0' }}>
-                              <span style={{ color: '#66FF66' }}>
+                            <li
+                              className="list-group-item d-flex justify-content-between align-items-center"
+                              style={{ backgroundColor: "#121212", borderColor: "#333333", borderWidth: "0" }}
+                            >
+                              <span style={{ color: isGamingMode ? "#ff88ff" : "#66FF66" }}>
                                 <i className="fas fa-tachometer-alt me-2"></i>
                                 Speed Test Ping
                               </span>
-                              <span style={{ color: '#00FF00' }}>{networkState.speedTestData.ping} ms</span>
+                              <span style={{ color: isGamingMode ? "#ff00ff" : "#00FF00" }}>
+                                {networkState.speedTestData.ping} ms
+                              </span>
                             </li>
                           )}
-                          <li className="list-group-item d-flex justify-content-between align-items-center"
-                            style={{ backgroundColor: '#121212', borderColor: '#333333', borderWidth: '0' }}>
-                            <span style={{ color: '#CCCCCC' }}>
+                          <li
+                            className="list-group-item d-flex justify-content-between align-items-center"
+                            style={{ backgroundColor: "#121212", borderColor: "#333333", borderWidth: "0" }}
+                          >
+                            <span style={{ color: "#CCCCCC" }}>
                               <i className="fas fa-random me-2"></i>
                               Jitter
                             </span>
-                            <span style={{ color: '#00FF00' }}>{networkData?.jitter || 0} <small style={{ color: '#CCCCCC' }}>ms</small></span>
+                            <span style={{ color: isGamingMode ? "#ff00ff" : "#00FF00" }}>
+                              {networkData?.jitter || 0} <small style={{ color: "#CCCCCC" }}>ms</small>
+                            </span>
                           </li>
-                          <li className="list-group-item d-flex justify-content-between align-items-center"
-                            style={{ backgroundColor: '#121212', borderColor: '#333333', borderWidth: '0' }}>
-                            <span style={{ color: '#CCCCCC' }}>
+                          <li
+                            className="list-group-item d-flex justify-content-between align-items-center"
+                            style={{ backgroundColor: "#121212", borderColor: "#333333", borderWidth: "0" }}
+                          >
+                            <span style={{ color: "#CCCCCC" }}>
                               <i className="fas fa-exclamation-triangle me-2"></i>
                               Packet Loss
                             </span>
-                            <span style={{ color: networkData?.packetLoss === 0 ? '#00FF00' : '#FFCC00' }}>
+                            <span
+                              style={{
+                                color:
+                                  networkData?.packetLoss === 0 ? (isGamingMode ? "#ff00ff" : "#00FF00") : "#FFCC00",
+                              }}
+                            >
                               {networkData?.packetLoss || 0}%
                             </span>
                           </li>
-                          <li className="list-group-item d-flex justify-content-between align-items-center"
-                            style={{ backgroundColor: '#121212', borderColor: '#333333', borderWidth: '0' }}>
-                            <span style={{ color: '#CCCCCC' }}>
+                          <li
+                            className="list-group-item d-flex justify-content-between align-items-center"
+                            style={{ backgroundColor: "#121212", borderColor: "#333333", borderWidth: "0" }}
+                          >
+                            <span style={{ color: "#CCCCCC" }}>
                               <i className="fas fa-globe me-2"></i>
                               IP Address
                             </span>
-                            <span style={{ color: '#00FF00' }}>{formatIP(networkData?.ipAddress)}</span>
+                            <span style={{ color: isGamingMode ? "#ff00ff" : "#00FF00" }}>
+                              {formatIP(networkData?.ipAddress)}
+                            </span>
                           </li>
-                          <li className="list-group-item d-flex justify-content-between align-items-center"
-                            style={{ backgroundColor: '#121212', borderColor: '#333333', borderWidth: '0' }}>
-                            <span style={{ color: '#CCCCCC' }}>
+                          <li
+                            className="list-group-item d-flex justify-content-between align-items-center"
+                            style={{ backgroundColor: "#121212", borderColor: "#333333", borderWidth: "0" }}
+                          >
+                            <span style={{ color: "#CCCCCC" }}>
                               <i className="fas fa-server me-2"></i>
                               DNS Server
                             </span>
-                            <span style={{ color: '#00FF00' }}>{formatIP(networkData?.dnsServer)}</span>
+                            <span style={{ color: isGamingMode ? "#ff00ff" : "#00FF00" }}>
+                              {formatIP(networkData?.dnsServer)}
+                            </span>
                           </li>
-                          <li className="list-group-item d-flex justify-content-between align-items-center"
-                            style={{ backgroundColor: '#121212', borderColor: '#333333', borderWidth: '0' }}>
-                            <span style={{ color: '#CCCCCC' }}>
+                          <li
+                            className="list-group-item d-flex justify-content-between align-items-center"
+                            style={{ backgroundColor: "#121212", borderColor: "#333333", borderWidth: "0" }}
+                          >
+                            <span style={{ color: "#CCCCCC" }}>
                               <i className="fas fa-microchip me-2"></i>
                               MAC Address
                             </span>
-                            <span style={{ color: '#00FF00' }}>{networkData?.macAddress || "Not available"}</span>
+                            <span style={{ color: isGamingMode ? "#ff00ff" : "#00FF00" }}>
+                              {networkData?.macAddress || "Not available"}
+                            </span>
                           </li>
                         </ul>
                       </div>
                     </div>
                   </div>
 
-                  <div className="col-12 px-3 fade-in delay-3"> {/* Added fade-in animation */}
-                    <div className="card border-0 shadow-lg" style={{ backgroundColor: '#121212' }}>
+                  <div className="col-12 px-3 fade-in delay-3">
+                    <div
+                      className={`card border-0 shadow-lg ${isGamingMode ? "rgb-border-container active" : ""}`}
+                      style={{ backgroundColor: "#121212", position: "relative" }}
+                    >
                       {ioData && (
                         <IOMonitor
                           uploadSpeed={ioData.uploadSpeed}
@@ -770,44 +924,65 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                   </div>
 
                   <div className="col-12 px-3 fade-in delay-3">
-                    <div className="card border-0 shadow-lg" style={{ backgroundColor: '#121212' }}>
+                    <div
+                      className={`card border-0 shadow-lg ${isGamingMode ? "rgb-border-container active" : ""}`}
+                      style={{ backgroundColor: "#121212", position: "relative" }}
+                    >
                       <div className="card-body">
                         <div className="d-flex justify-content-between align-items-center mb-3">
-                          <h5 className="card-title mb-0" style={{ color: '#00FF00' }}>
+                          <h5 className="card-title mb-0" style={{ color: isGamingMode ? "#ff00ff" : "#00FF00" }}>
                             <i className="fas fa-chart-area me-2"></i>
                             Network Usage
                           </h5>
                           <div className="time-range-buttons">
                             <button
-                              className={`btn btn-sm me-2 ${timeRange === '5min' ? 'active' : ''}`}
+                              className={`btn btn-sm me-2 ${timeRange === "5min" ? "active" : ""}`}
                               style={{
-                                backgroundColor: timeRange === '5min' ? '#00FF00' : 'transparent',
-                                color: timeRange === '5min' ? '#000000' : '#CCCCCC',
-                                border: timeRange === '5min' ? 'none' : '1px solid #333333'
+                                backgroundColor:
+                                  timeRange === "5min" ? (isGamingMode ? "#ff00ff" : "#00FF00") : "transparent",
+                                color: timeRange === "5min" ? "#000000" : "#CCCCCC",
+                                border:
+                                  timeRange === "5min"
+                                    ? "none"
+                                    : isGamingMode
+                                      ? "1px solid #ff00ff"
+                                      : "1px solid #333333",
                               }}
-                              onClick={() => handleTimeRangeChange('5min')}
+                              onClick={() => handleTimeRangeChange("5min")}
                             >
                               5 Min
                             </button>
                             <button
-                              className={`btn btn-sm me-2 ${timeRange === '1hour' ? 'active' : ''}`}
+                              className={`btn btn-sm me-2 ${timeRange === "1hour" ? "active" : ""}`}
                               style={{
-                                backgroundColor: timeRange === '1hour' ? '#00FF00' : 'transparent',
-                                color: timeRange === '1hour' ? '#000000' : '#CCCCCC',
-                                border: timeRange === '1hour' ? 'none' : '1px solid #333333'
+                                backgroundColor:
+                                  timeRange === "1hour" ? (isGamingMode ? "#ff00ff" : "#00FF00") : "transparent",
+                                color: timeRange === "1hour" ? "#000000" : "#CCCCCC",
+                                border:
+                                  timeRange === "1hour"
+                                    ? "none"
+                                    : isGamingMode
+                                      ? "1px solid #ff00ff"
+                                      : "1px solid #333333",
                               }}
-                              onClick={() => handleTimeRangeChange('1hour')}
+                              onClick={() => handleTimeRangeChange("1hour")}
                             >
                               1 Hour
                             </button>
                             <button
-                              className={`btn btn-sm ${timeRange === '1day' ? 'active' : ''}`}
+                              className={`btn btn-sm ${timeRange === "1day" ? "active" : ""}`}
                               style={{
-                                backgroundColor: timeRange === '1day' ? '#00FF00' : 'transparent',
-                                color: timeRange === '1day' ? '#000000' : '#CCCCCC',
-                                border: timeRange === '1day' ? 'none' : '1px solid #333333'
+                                backgroundColor:
+                                  timeRange === "1day" ? (isGamingMode ? "#ff00ff" : "#00FF00") : "transparent",
+                                color: timeRange === "1day" ? "#000000" : "#CCCCCC",
+                                border:
+                                  timeRange === "1day"
+                                    ? "none"
+                                    : isGamingMode
+                                      ? "1px solid #ff00ff"
+                                      : "1px solid #333333",
                               }}
-                              onClick={() => handleTimeRangeChange('1day')}
+                              onClick={() => handleTimeRangeChange("1day")}
                             >
                               1 Day
                             </button>
@@ -820,12 +995,12 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                             totalDataTransfer={totalDataTransfer}
                           />
                         ) : (
-                          <div className="text-center py-5" style={{ color: '#CCCCCC' }}>
-                            <i className="fas fa-chart-area mb-3" style={{ fontSize: '2rem' }}></i>
+                          <div className="text-center py-5" style={{ color: "#CCCCCC" }}>
+                            <i className="fas fa-chart-area mb-3" style={{ fontSize: "2rem" }}></i>
                             <p>
-                              {networkState.speedTestCompleted ?
-                                "No network data available yet. Data will appear as your connection is monitored." :
-                                "Run a speed test to start collecting network data."}
+                              {networkState.speedTestCompleted
+                                ? "No network data available yet. Data will appear as your connection is monitored."
+                                : "Run a speed test to start collecting network data."}
                             </p>
                           </div>
                         )}
@@ -840,7 +1015,7 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
       </div>
 
       {/* Footer */}
-      <div className="footer text-center py-3 mt-auto" style={{ color: '#CCCCCC' }}>
+      <div className="footer text-center py-3 mt-auto" style={{ color: "#CCCCCC" }}>
         <i className="fas fa-clock me-2"></i>
         Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : "Never"}
         <span className="ms-2">
@@ -852,4 +1027,3 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
 }
 
 export default Network
-
