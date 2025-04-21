@@ -6,6 +6,8 @@ import Network from './pages/Network';
 import BottomNav from './components/BottomNav';
 import GetStarted from './pages/GetStarted';
 import SpeedTestNotification from './components/SpeedTestNotification';
+import { TemperatureProvider } from "./context/TemperatureContext";
+
 
 interface SpeedTestResult {
     download: number;
@@ -268,10 +270,12 @@ const AppContent = () => {
 
 const App = () => {
     return (
-        <Router>
+        <TemperatureProvider>
+          <Router>
             <AppContent />
-        </Router>
-    );
+          </Router>
+        </TemperatureProvider>
+      );
 };
 
 export default App;
