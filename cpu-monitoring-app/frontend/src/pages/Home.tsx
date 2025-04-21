@@ -210,19 +210,29 @@ const TemperatureBar = ({ isGamingMode }: TemperatureBarProps) => {
     <div className="temp-info">
       <div className="info-row">
         <span>CPU Temperature</span>
-        <span className={cpuTemp > 80 ? "text-danger" : "text-success"}>{cpuTemp} °C</span>
+        <span className={cpuTemp > 80 ? "text-danger" : ""} style={cpuTemp > 80 ? {} : { color: "#00ff00" }}>
+  {cpuTemp} °C
+</span>
+
       </div>
       <div className="info-row">
         <span>GPU Temperature</span>
-        <span className={gpuTemp > 80 ? "text-danger" : "text-success"}>{gpuTemp} °C</span>
+        <span className={gpuTemp > 80 ? "text-danger" : ""} style={gpuTemp > 80 ? {} : { color: "#00ff00" }}>
+  {gpuTemp} °C
+</span>
+
       </div>
       <div className="info-row">
         <span>GPU Clock</span>
-        <span className="text-success">{gpuStats.gpu_clock_speed} MHz</span>
+        <span className={gpuStats.gpu_clock_speed > 2000 ? "text-danger" : ""} style={gpuStats.gpu_clock_speed > 2000 ? {} : { color: "#00ff00" }}>
+  {gpuStats.gpu_clock_speed} MHz
+</span>
       </div>
       <div className="info-row">
         <span>VRAM Clock</span>
-        <span className="text-success">{gpuStats.vram_clock_speed} MHz</span>
+        <span className={gpuStats.vram_clock_speed > 2000 ? "text-danger" : ""} style={gpuStats.vram_clock_speed > 2000 ? {} : { color: "#00ff00" }}>
+  {gpuStats.vram_clock_speed} MHz
+</span>
       </div>
     </div>
   )

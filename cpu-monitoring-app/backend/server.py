@@ -383,54 +383,29 @@ async def get_processes():
 
 
 
-@app.get("/cpu-temperature")
+@app.get("/cpu-temperature", summary="Get Overall CPU Temperature")
 async def get_cpu_temperature():
-    """Get CPU temperature with multiple fallback methods"""
+    """
+    Get the overall CPU temperature by averaging all CPU core temps from OpenHardwareMonitor.
+    """
     try:
-        # Method 1: WMI (Windows Management Instrumentation)
-        try:
-            w = wmi.WMI(namespace=r"root\wmi")
-            temps = [t.CurrentTemperature/10 - 273.15 for t in w.MSAcpi_ThermalZoneTemperature()]
-            if temps:
-                return {"cpu_temperature": round(temps[0], 1)}
-        except Exception as e:
-            print(f"WMI Method 1 failed: {e}")
+        w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
 
-        # Method 2: OpenHardwareMonitor WMI
-        try:
-            w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
-            cpu_temp = next((s.Value for s in w.Sensor() 
-                           if s.SensorType == "Temperature" and "CPU" in s.Name), None)
-            if cpu_temp:
-                return {"cpu_temperature": cpu_temp}
-        except Exception as e:
-            print(f"OpenHardwareMonitor failed: {str(e)}")
-            print("Please ensure OpenHardwareMonitor is installed and running as administrator")
+        # Collect all core temps
+        core_temps = [
+            sensor.Value
+            for sensor in w.Sensor()
+            if sensor.SensorType == "Temperature" and "CPU Core" in sensor.Name
+        ]
 
-        # Method 3: psutil (cross-platform but limited)
-        try:
-            if hasattr(psutil, "sensors_temperatures"):
-                temps = psutil.sensors_temperatures()
-                if 'coretemp' in temps:
-                    return {"cpu_temperature": temps['coretemp'][0].current}
-        except Exception as e:
-            print(f"psutil method failed: {e}")
+        if core_temps:
+            avg_temp = round(sum(core_temps) / len(core_temps), 1)
+            return {"cpu_temperature": avg_temp}
 
-        # Method 4: Windows Registry (some systems)
-        try:
-            import winreg
-            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
-                               r"HARDWARE\DESCRIPTION\System\ThermalZone\0")
-            temp_kelvin = winreg.QueryValueEx(key, "Temperature")[0] / 10
-            return {"cpu_temperature": round(temp_kelvin - 273.15, 1)}
-        except Exception as e:
-            print(f"Registry method failed: {e}")
-
-        return {"error": "All temperature methods failed"}, 500
+        return {"error": "No CPU core temperatures found"}, 404
 
     except Exception as e:
-        return {"error": f"CPU temperature check failed: {str(e)}"}, 500
-
+        return {"error": f"Failed to retrieve CPU temperature: {str(e)}"}, 500
 
 
 @app.get("/gpu-temperature",
@@ -438,50 +413,39 @@ async def get_cpu_temperature():
          response_description="GPU temperature in Celsius or error message",
          tags=["Hardware Monitoring"])
 async def get_gpu_temperature():
-    """Get GPU temperature from NVIDIA or AMD graphics cards"""
+    """Get GPU temperature from system hardware (including CPU and GPU)"""
     try:
-        # Method 1: NVIDIA SMI
+        # Use cmd.exe to run WMIC directly (avoid PowerShell escaping issues)
         try:
             result = subprocess.run(
-                ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
+                ["cmd", "/c", "wmic", "/namespace:\\\\root\\wmi", "path", "MSAcpi_ThermalZoneTemperature", "get", "CurrentTemperature"],
                 capture_output=True, text=True, timeout=5
             )
+            print("Raw command output:", result.stdout)
+
             if result.returncode == 0:
-                temp = result.stdout.strip()
-                if temp and temp.isdigit():
-                    return {"gpu_temperature": int(temp)}
-        except Exception as e:
-            print(f"NVIDIA-SMI failed: {e}")
+                output_lines = result.stdout.strip().split('\n')
+                print("Parsed lines:", output_lines)
 
-        # Method 2: OpenHardwareMonitor
-        try:
-            w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
-            gpu_temp = next((s.Value for s in w.Sensor() 
-                           if s.SensorType == "Temperature" and "GPU" in s.Name), None)
-            if gpu_temp:
-                return {"gpu_temperature": gpu_temp}
+                # Look for the numeric temperature value
+                for line in output_lines:
+                    line = line.strip()
+                    if line.isdigit():
+                        temp_kelvin = int(line) / 10.0  # Convert to Kelvin
+                        temp_celsius = temp_kelvin - 273.15  # Convert to Celsius
+                        return {"gpu_temperature": round(temp_celsius, 2)}
+                
+                return {"error": "No valid temperature data found"}, 500
+            else:
+                error_msg = f"Command failed: {result.stderr}"
+                print(error_msg)
+                return {"error": error_msg}, 500
         except Exception as e:
-            print(f"OpenHardwareMonitor failed: {str(e)}")
-            print("Please ensure OpenHardwareMonitor is installed and running as administrator")
-
-        # Method 3: AMD GPU (alternative approach)
-        try:
-            result = subprocess.run(
-                ["rocm-smi", "--showtemp"],
-                capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                match = re.search(r"GPU\s*\[(\d+)\]\s*:\s*(\d+)", result.stdout)
-                if match:
-                    return {"gpu_temperature": int(match.group(2))}
-        except Exception as e:
-            print(f"ROCm-SMI failed: {e}")
-
-        return {"error": "No GPU temperature data available"}, 500
+            print(f"WMIC command failed: {e}")
+            return {"error": f"WMIC command failed: {str(e)}"}, 500
 
     except Exception as e:
-        return {"error": f"GPU temperature check failed: {str(e)}"}, 500
-    
+        return {"error": f"Temperature check failed: {str(e)}"}, 500
     
 def get_gpu_stats():
     """Get GPU and VRAM clock speeds"""

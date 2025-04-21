@@ -7,6 +7,7 @@ app.whenReady().then(() => {
     width: 1080,
     height: 800,
     resizable: false, // Make the window non-resizable
+    icon: 'Logo.ico', // Path to your icon file
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false, // Ensure isolation is disabled if needed
