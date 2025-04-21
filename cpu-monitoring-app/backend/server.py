@@ -19,6 +19,7 @@ from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetTemperatur
 import random
 import wmi
 import subprocess
+from gaming_mode import router as gaming_mode_router
 from typing import Optional
 from collections import deque
 from disk_info import get_disk_data
@@ -453,3 +454,4 @@ async def shutdown_event():
     print("Shutting down cleanly...")
 
 
+app.include_router(gaming_mode_router)
