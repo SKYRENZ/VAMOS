@@ -252,7 +252,7 @@ export const Battery = ({ networkState }: BatteryProps) => {
       {/* Giant Battery Visualization */}
       <div
         className="battery-visualization d-flex justify-content-center align-items-center mt-5"
-        style={{ height: "45vh", width: "100vw", padding: 0, margin: 0 }}
+        style={{ height: "45vh", width: "90%", padding: 0, margin: "0 Auto" }}
       >
         <div
           className={`battery-container position-relative rgb-border-container ${isGamingMode ? "active" : ""}`}
@@ -309,7 +309,7 @@ export const Battery = ({ networkState }: BatteryProps) => {
             fontSize: "3vw",
             color: isGamingMode ? "url(#rgbGradient)" : isCharging ? "#00ff00" : "#ff0000",
             WebkitBackgroundClip: isGamingMode ? "text" : "unset",
-            WebkitTextFillColor: isGamingMode ? "transparent" : "unset",
+            WebkitTextFillColor: isGamingMode ? "#00aaff" : "unset",
           }}
         >
           {isCharging ? "CHARGING" : "UNPLUGGED"}
@@ -322,9 +322,9 @@ export const Battery = ({ networkState }: BatteryProps) => {
       </div>
 
       {/* Battery Info */}
-      <div style={{ height: "50vh", display: "flex", justifyContent: "center" }}>
+      <div style={{ height: "50vh", display: "flex", justifyContent: "center",width: "90%", margin: "0 auto" }}>
         <div
-          className={`battery-info mt-5 w-full text-center rgb-border-container ${isGamingMode ? "active" : ""}`}
+          className={`battery-info mt-5 text-center rgb-border-container ${isGamingMode ? "active" : ""}`}
           style={{ backgroundColor: "#121212", width: "90%", height: "40vh", padding: "2rem", borderRadius: "8px" }}
         >
           <div
@@ -387,12 +387,12 @@ export const Battery = ({ networkState }: BatteryProps) => {
         </div>
       </div>
 
-      <div className="w-full flex justify-center mt-6">
+      <div className=" flex justify-center mt-6 mb-5" style={{ width: "90%", margin: "0 auto" }}>
         <div
-          className={`w-full max-w-5xl bg-[#1e1e1e] p-6 rounded-lg shadow-lg rgb-border-container ${isGamingMode ? "active" : ""}`}
-          style={{ height: "80vh" }}
+          className={`max-w-5xl bg-[#1e1e1e] rounded-lg shadow-lg rgb-border-container ${isGamingMode ? "active" : ""}`}
+          style={{ height: "65vh" }}
         >
-          <h2 className="text-xl mb-4" style={{ marginLeft: "5%", color: isGamingMode ? "#00aaff" : "#00FF00" }}>
+          <h2 className="text-xl mb-4" style={{color: isGamingMode ? "#00aaff" : "#00FF00" }}>
             Power Consumption History
           </h2>
           <PowerConsumptionGraph />
