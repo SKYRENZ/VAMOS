@@ -103,14 +103,31 @@ interface NetworkProps {
   networkState: {
     speedTestCompleted: boolean;
     speedTestData: SpeedTestResult | null;
+    isRunningSpeedTest: boolean;
+    scanProgress: number;
+    currentPhase: string;
+    error: string | null;
+    dataReady: boolean;
   };
   setNetworkState: React.Dispatch<React.SetStateAction<{
     speedTestCompleted: boolean;
     speedTestData: SpeedTestResult | null;
+    isRunningSpeedTest: boolean;
+    scanProgress: number;
+    currentPhase: string;
+    error: string | null;
+    dataReady: boolean;
   }>>;
+  onRunSpeedTest: () => Promise<void>;
 }
 
-export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
+// Add a global variable to store the background fetch interval
+let backgroundFetchInterval: number | null = null;
+
+// Add a variable to track if we need a quick refresh after initial test
+let needsInitialQuickRefresh = false;
+
+export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: NetworkProps) => {
   const [networkData, setNetworkData] = useState<NetworkData | null>({
     connectionType: "Unknown",
     signalStrength: 0,
@@ -135,7 +152,6 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
   })
   const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [isRunningSpeedTest, setIsRunningSpeedTest] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [bandwidthHistory, setBandwidthHistory] = useState<BandwidthDataPoint[]>([])
@@ -151,6 +167,7 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [showExportDropdown, setShowExportDropdown] = useState<boolean>(false);
   const exportButtonRef = useRef<HTMLDivElement>(null);
+  const [initialRefreshDone, setInitialRefreshDone] = useState(false);
 
   // Handle clicking outside the dropdown to close it
   useEffect(() => {
@@ -242,19 +259,66 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
     setShowExportDropdown(!showExportDropdown);
   };
 
-  // Fetch all network data
+  // Use effect to watch for speed test completion and trigger a quick refresh
+  useEffect(() => {
+    // Watch for when speed test completes
+    if (networkState.speedTestCompleted && !initialRefreshDone) {
+      console.log("Speed test just completed - scheduling quick refresh");
+      needsInitialQuickRefresh = true;
+
+      // Immediate fetch to show data right away
+      fetchData();
+
+      // Set a quick 10-second refresh to get the most recent data after test
+      const quickRefreshTimeout = setTimeout(() => {
+        console.log("Running quick 10-second refresh after speed test");
+        fetchData();
+        setInitialRefreshDone(true);
+      }, 10000);
+
+      return () => clearTimeout(quickRefreshTimeout);
+    }
+  }, [networkState.speedTestCompleted]);
+
+  // Initial data fetch and set up refresh interval
+  useEffect(() => {
+    // Fetch on mount
+    fetchData();
+
+    // Set up global interval for background fetching if not already running
+    if (!backgroundFetchInterval) {
+      console.log("Setting up background fetch interval");
+      backgroundFetchInterval = window.setInterval(fetchData, 30000);
+    }
+
+    // Cleanup function
+    return () => {
+      // Don't clear the interval here to allow background data collection
+      // Only clear history when component is unmounted
+      fetch(`${API_URL}/clear-history`).catch(err =>
+        console.error('Error clearing history:', err)
+      );
+    };
+  }, []);
+
+  // Function to force an immediate data refresh
+  const forceRefresh = () => {
+    fetchData();
+  };
+
+  // Modify fetchData to update UI immediately after speed test
   const fetchData = async () => {
     try {
-      setIsLoading(true)
-      const response = await fetch(`${API_URL}/all`)
-      const data = await response.json()
+      setIsLoading(true);
+      const response = await fetch(`${API_URL}/all`);
+      const data = await response.json();
 
-      setNetworkData(data.networkData)
-      setIOData(data.ioData)
-      setConnectedDevices(data.connectedDevices)
-      setBandwidthHistory(data.bandwidthHistory || [])
-      setLatencyHistory(data.latencyHistory || [])
-      setDataTransferHistory(data.dataTransferHistory || [])
+      setNetworkData(data.networkData);
+      setIOData(data.ioData);
+      setConnectedDevices(data.connectedDevices);
+      setBandwidthHistory(data.bandwidthHistory || []);
+      setLatencyHistory(data.latencyHistory || []);
+      setDataTransferHistory(data.dataTransferHistory || []);
       setTotalDataTransfer(data.totalDataTransfer ? {
         totalSent: data.totalDataTransfer.sent,
         totalReceived: data.totalDataTransfer.received,
@@ -265,16 +329,40 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
         totalReceived: 0,
         sentFormatted: "0 B",
         receivedFormatted: "0 B"
-      })
-      setLastUpdated(new Date(data.lastUpdated))
-      setError(null)
+      });
+      setLastUpdated(new Date(data.lastUpdated));
+      setError(null);
+
+      // If we just finished a speed test, make sure to show data immediately
+      if (networkState.speedTestCompleted && !networkState.dataReady) {
+        console.log("Speed test completed - updating UI immediately");
+        setNetworkState(prev => ({
+          ...prev,
+          dataReady: true
+        }));
+      }
+
+      // Even if speed test hasn't been run yet, save the data for when it is
+      if (!networkState.speedTestCompleted && !networkState.dataReady &&
+        data.bandwidthHistory && data.bandwidthHistory.length > 0) {
+        console.log("Collecting background data before initial speed test");
+
+        // If we have substantial data, auto-show it without requiring a speed test
+        // (e.g., after 5 data points, which would be ~2.5 minutes at 30s intervals)
+        if (data.bandwidthHistory.length >= 5) {
+          setNetworkState(prev => ({
+            ...prev,
+            dataReady: true
+          }));
+        }
+      }
     } catch (err) {
-      console.error('Error fetching network data:', err)
-      setError('Failed to fetch network data. Make sure the Python backend is running.')
+      console.error('Error fetching network data:', err);
+      setError('Failed to fetch network data. Make sure the Python backend is running.');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // Fetch bandwidth history
   const fetchBandwidthHistory = async () => {
@@ -298,62 +386,22 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
     }
   }
 
-  // Run speed test
-  const handleRunSpeedTest = async () => {
-    try {
-      setIsRunningSpeedTest(true)
-      setNetworkState(prev => ({ ...prev, speedTestData: null }))
-
-      // Simulate a minimal delay for the test UI feedback
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      const response = await fetch(`${API_URL}/speedtest`)
-      const data = await response.json()
-
-      // Check if the response contains an error
-      if (data.error) {
-        setError(data.error)
-        setNetworkState(prev => ({ ...prev, speedTestData: null }))
-      } else {
-        setNetworkState(prev => ({ ...prev, speedTestData: data }))
-        // Refresh all network data after speed test completes
-        await fetchData()
-        // Set the speed test as completed to show remaining content
-        setNetworkState(prev => ({ ...prev, speedTestCompleted: true }))
-
-        // Refresh data again after a short delay to ensure I/O Monitor is updated
-        setTimeout(fetchData, 1000)
-        setTimeout(fetchData, 3000)
-      }
-    } catch (err) {
-      console.error('Error running speed test:', err)
-      setError('Failed to run speed test.')
-    } finally {
-      setIsRunningSpeedTest(false)
-    }
-  }
-
   // Handle time range change for bandwidth graph
   const handleTimeRangeChange = (newRange: '5min' | '1hour' | '1day') => {
     setTimeRange(newRange)
   }
 
-  // Initial data fetch and set up refresh interval
+  // Add a cleanup effect when component is completely unmounted from the app
   useEffect(() => {
-    fetchData()
-
-    // Refresh data every 30 seconds
-    const interval = setInterval(fetchData, 30000)
-
-    // Cleanup function
     return () => {
-      clearInterval(interval)
-      // Clear history when component unmounts
-      fetch(`${API_URL}/clear-history`).catch(err =>
-        console.error('Error clearing history:', err)
-      )
-    }
-  }, [])
+      // Clear the interval only when the app is completely closed
+      if (backgroundFetchInterval) {
+        console.log("Clearing background fetch interval");
+        window.clearInterval(backgroundFetchInterval);
+        backgroundFetchInterval = null;
+      }
+    };
+  }, []);
 
   // Fetch bandwidth and data transfer history when time range changes
   useEffect(() => {
@@ -516,7 +564,7 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
               <div className="col-12 px-0">
                 <div className="card border-0 shadow-lg" style={{
                   backgroundColor: '#121212',
-                  ...((!networkState.speedTestCompleted) && {
+                  ...((!networkState.speedTestCompleted && !networkState.dataReady) && {
                     maxWidth: '900px',
                     margin: '2rem auto'
                   })
@@ -525,7 +573,7 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                     <h5 className="card-title mb-3" style={{ color: '#00FF00' }}>
                       <i className="fas fa-tachometer-alt me-2"></i>
                       Speed Test
-                      {!networkState.speedTestCompleted && (
+                      {!networkState.speedTestCompleted && !networkState.dataReady && (
                         <small style={{ color: '#CCCCCC', fontSize: '0.8rem', marginLeft: '10px' }}>
                           Run a speed test to see all network data
                         </small>
@@ -533,23 +581,25 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                     </h5>
 
                     <CircularGaugeSpeedTest
-                      isRunning={isRunningSpeedTest}
+                      isRunning={networkState.isRunningSpeedTest}
                       downloadSpeed={networkState.speedTestData?.download || null}
                       uploadSpeed={networkState.speedTestData?.upload || null}
                       ping={networkState.speedTestData?.ping || null}
-                      onStartTest={handleRunSpeedTest}
+                      onStartTest={onRunSpeedTest}
+                      progress={networkState.scanProgress}
+                      currentPhase={networkState.currentPhase}
                     />
 
-                    {isRunningSpeedTest && (
+                    {networkState.isRunningSpeedTest && (
                       <div className="test-server-info mt-3 text-center">
                         <p style={{ color: '#CCCCCC', fontSize: '0.9rem' }}>
                           <i className="fas fa-spinner fa-spin me-2"></i>
-                          Running enhanced accuracy test (may take 20-30 seconds)...
+                          {networkState.currentPhase} ({Math.round(networkState.scanProgress)}%)
                         </p>
                       </div>
                     )}
 
-                    {networkState.speedTestData && networkState.speedTestData.server && (
+                    {!networkState.isRunningSpeedTest && networkState.speedTestData && networkState.speedTestData.server && (
                       <div className="test-server-info mt-3 text-center">
                         <p style={{ color: '#CCCCCC', fontSize: '0.9rem' }}>
                           <i className="fas fa-server me-2"></i>
@@ -584,7 +634,7 @@ export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
                 </div>
               </div>
 
-              {networkState.speedTestCompleted && (
+              {(networkState.speedTestCompleted || networkState.dataReady) && (
                 <>
                   <div className="col-lg-6 px-3 fade-in delay-1"> {/* Added fade-in animation */}
                     <div className="card border-0 shadow-lg h-100" style={{ backgroundColor: '#121212' }}>

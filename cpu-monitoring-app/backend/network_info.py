@@ -13,6 +13,18 @@ import random
 from collections import deque
 import math
 import socket
+import json
+
+# Custom JSON encoder to handle datetime objects
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+# Function to safely serialize objects to JSON
+def safe_json_dump(obj):
+    return json.dumps(obj, cls=DateTimeEncoder)
 
 # Global cache for network data
 network_cache = {
@@ -685,25 +697,26 @@ def update_network_data():
             "macAddress": get_mac_address()
         }
         
-        # Add to bandwidth history only if first speed test completed
-        if network_cache["first_speed_test_completed"]:
-            # Now tracking actual bytes transferred in this interval (not speeds)
-            bandwidth_history.append({
-                "timestamp": datetime.now().isoformat(),
-                "download": bytes_received,  # Actual bytes downloaded in this interval
-                "upload": bytes_sent,        # Actual bytes uploaded in this interval
-                "downloadFormatted": format_bytes(bytes_received),
-                "uploadFormatted": format_bytes(bytes_sent)
+        # Add to bandwidth history even if first speed test is not yet completed
+        # Now tracking actual bytes transferred in this interval (not speeds)
+        bandwidth_history.append({
+            "timestamp": datetime.now().isoformat(),
+            "download": bytes_received,  # Actual bytes downloaded in this interval
+            "upload": bytes_sent,        # Actual bytes uploaded in this interval
+            "downloadFormatted": format_bytes(bytes_received),
+            "uploadFormatted": format_bytes(bytes_sent)
+        })
+        
+        # Add to data transfer history every 5 minutes
+        current_time = datetime.now()
+        if not data_transfer_history or (current_time - datetime.fromisoformat(data_transfer_history[-1]["timestamp"])).total_seconds() >= 300:
+            data_transfer_history.append({
+                "timestamp": current_time.isoformat(),
+                "totalBytesSent": network_cache["total_bytes_sent"],
+                "totalBytesReceived": network_cache["total_bytes_received"],
+                "totalBytesSentFormatted": format_bytes(network_cache["total_bytes_sent"]),
+                "totalBytesReceivedFormatted": format_bytes(network_cache["total_bytes_received"])
             })
-            
-            # Add to data transfer history every 5 minutes
-            current_time = datetime.now()
-            if not data_transfer_history or (current_time - datetime.fromisoformat(data_transfer_history[-1]["timestamp"])).total_seconds() >= 300:
-                data_transfer_history.append({
-                    "timestamp": current_time.isoformat(),
-                    "totalBytesSent": network_cache["total_bytes_sent"],
-                    "totalBytesReceived": network_cache["total_bytes_received"]
-                })
         
         # Update Network IO data
         network_cache["io_data"] = get_network_io()

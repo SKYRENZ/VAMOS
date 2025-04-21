@@ -37,9 +37,12 @@ from network_info import (
     update_network_data,
     clear_history,
     get_network_io as get_network_io_data,
-    format_bytes
+    format_bytes,
+    DateTimeEncoder,
+    safe_json_dump
 )
 from pydantic import BaseModel
+import json
 
 app = FastAPI()
 print(app.routes)
@@ -55,6 +58,17 @@ app.add_middleware(
 # Start background network data update thread
 update_thread = None
 stop_thread = False
+
+# Add a global variable to track speed test status
+speed_test_status = {
+    "running": False,
+    "progress": 0,
+    "phase": "",
+    "start_time": None
+}
+
+# Add a flag to track the status of currently running speed test
+is_speed_test_running = False
 
 class PlanRequest(BaseModel):
     plan: str  # SCHEME_MIN or SCHEME_MAX
@@ -88,6 +102,13 @@ async def startup_event():
     update_thread.daemon = True
     update_thread.start()
     
+    # Force an immediate data update on startup
+    try:
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] Performing initial data collection...")
+        update_network_data()
+    except Exception as e:
+        logging.error(f"Error in startup data collection: {e}")
+
 @app.on_event("shutdown")
 async def shutdown_event():
     """Stop background threads when the server shuts down"""
@@ -117,17 +138,108 @@ async def fetch_network_data():
     """API endpoint to get network data"""
     return JSONResponse(content=get_network_data())
 
+@app.get("/api/speedtest/status")
+async def speed_test_status_endpoint():
+    """Get the current status of a speed test"""
+    global speed_test_status
+    
+    # If a test has been running for more than 2 minutes, assume it failed
+    if speed_test_status["running"] and speed_test_status["start_time"]:
+        if (datetime.now() - speed_test_status["start_time"]).total_seconds() > 120:
+            speed_test_status = {
+                "running": False,
+                "progress": 0,
+                "phase": "",
+                "start_time": None
+            }
+    
+    # Make a copy and convert datetime to string to make it JSON serializable
+    status_copy = speed_test_status.copy()
+    if status_copy.get("start_time"):
+        status_copy["start_time"] = status_copy["start_time"].isoformat()
+        
+    return DateTimeJSONResponse(content=status_copy)
+
 @app.get("/api/speedtest")
 async def fetch_speed_test():
     """API endpoint to run a speed test"""
-    # Run the speed test - network data update is already handled in get_speed_test_data
-    speed_test_results = get_speed_test_data()
+    global speed_test_status, is_speed_test_running
     
-    # Force an immediate network data update to reflect new state
-    update_network_data()
+    # If a test is already running, return status
+    if is_speed_test_running:
+        # Convert datetime to string to make it JSON serializable
+        status_copy = speed_test_status.copy()
+        if status_copy.get("start_time"):
+            status_copy["start_time"] = status_copy["start_time"].isoformat()
+        return DateTimeJSONResponse(content={"message": "Speed test already in progress", "status": status_copy})
     
-    # Ensure data is immediately accessible to all routes
-    return JSONResponse(content=speed_test_results)
+    # Set the status to running
+    speed_test_status = {
+        "running": True,
+        "progress": 0,
+        "phase": "Starting speed test...",
+        "start_time": datetime.now()
+    }
+    is_speed_test_running = True
+    
+    # Run the speed test in a background thread
+    def run_speed_test_thread():
+        global speed_test_status, is_speed_test_running
+        try:
+            # Run the speed test - network data update is already handled in get_speed_test_data
+            speed_test_status["phase"] = "Running speed test..."
+            speed_test_status["progress"] = 50
+            speed_test_results = get_speed_test_data()
+            
+            # Force an immediate network data update to reflect new state
+            speed_test_status["phase"] = "Updating network data..."
+            speed_test_status["progress"] = 90
+            update_network_data()
+            
+            # Schedule an additional quick update after 5 seconds
+            def delayed_update():
+                time.sleep(5)
+                try:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] Running post-test quick update")
+                    update_network_data()
+                except Exception as e:
+                    print(f"Error in delayed update: {e}")
+            
+            # Start a thread for the delayed update
+            update_thread = threading.Thread(target=delayed_update)
+            update_thread.daemon = True
+            update_thread.start()
+            
+            # Mark test as completed
+            speed_test_status = {
+                "running": False,
+                "progress": 100,
+                "phase": "Test completed",
+                "start_time": None
+            }
+            is_speed_test_running = False
+            
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Speed test completed successfully")
+        except Exception as e:
+            speed_test_status = {
+                "running": False,
+                "progress": 0,
+                "phase": "",
+                "start_time": None
+            }
+            is_speed_test_running = False
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Speed test failed: {e}")
+    
+    # Start the background thread
+    test_thread = threading.Thread(target=run_speed_test_thread)
+    test_thread.daemon = True
+    test_thread.start()
+    
+    # Return immediately with the status (convert datetime to string)
+    status_copy = speed_test_status.copy()
+    if status_copy.get("start_time"):
+        status_copy["start_time"] = status_copy["start_time"].isoformat()
+    return DateTimeJSONResponse(content={"message": "Speed test started", "status": status_copy})
 
 @app.get("/api/devices")
 async def fetch_devices():
@@ -152,7 +264,7 @@ async def fetch_connection_quality():
 @app.get("/api/all")
 async def fetch_all_data():
     """API endpoint to get all network data"""
-    return JSONResponse(content=get_all_network_data())
+    return DateTimeJSONResponse(content=get_all_network_data())
 
 @app.get("/api/clear-history")
 async def clear_history():
@@ -478,5 +590,19 @@ def power_consumption_status():
 async def shutdown_event():
     print("Shutting down cleanly...")
 
+@app.get("/api/speedtest/result")
+async def get_speed_test_result():
+    """Get the result of the most recent speed test"""
+    from network_info import network_cache
+    
+    if network_cache.get("speed_test") is None:
+        return DateTimeJSONResponse(content={"error": "No speed test has been run yet"})
+    
+    return DateTimeJSONResponse(content=network_cache["speed_test"])
 
 app.include_router(gaming_mode_router)
+
+# Custom JSONResponse that uses DateTimeEncoder for handling datetime objects
+class DateTimeJSONResponse(JSONResponse):
+    def render(self, content):
+        return json.dumps(content, cls=DateTimeEncoder).encode("utf-8")

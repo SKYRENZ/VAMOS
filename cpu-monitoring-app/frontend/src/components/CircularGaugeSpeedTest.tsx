@@ -7,6 +7,8 @@ interface CircularGaugeSpeedTestProps {
     uploadSpeed: number | null;
     ping: number | null;
     onStartTest: () => void;
+    progress?: number;
+    currentPhase?: string;
 }
 
 const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
@@ -14,7 +16,9 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
     downloadSpeed,
     uploadSpeed,
     ping,
-    onStartTest
+    onStartTest,
+    progress = 0,
+    currentPhase = ''
 }) => {
     // Calculate the angle for the arc (in radians)
     const calculateStrokeLength = (value: number, max: number) => {
@@ -161,8 +165,9 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
                 >
                     {isRunning ? (
                         <>
-                            <span className="scanning-text">SCANNING</span>
-                            <span className="scanning-dots">...</span>
+                            <span className="scanning-text">
+                                Scanning
+                            </span>
                         </>
                     ) : 'START'}
                 </button>
@@ -173,7 +178,9 @@ const CircularGaugeSpeedTest: React.FC<CircularGaugeSpeedTestProps> = ({
                         textAlign: 'center',
                         marginTop: '5px',
                         fontStyle: 'italic'
-                    }}>                    </div>
+                    }}>
+                        {currentPhase && `${currentPhase}`}
+                    </div>
                 )}
             </div>
         </div>

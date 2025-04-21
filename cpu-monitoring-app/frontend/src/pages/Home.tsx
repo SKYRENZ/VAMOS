@@ -222,6 +222,7 @@ interface HomeProps {
     scanProgress: number
     currentPhase: string
     error: string | null
+    dataReady: boolean
   }
 }
 

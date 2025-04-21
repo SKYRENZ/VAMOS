@@ -29,8 +29,8 @@ interface BandwidthDataPoint {
     timestamp: string;
     download: number;
     upload: number;
-    downloadFormatted: string;
-    uploadFormatted: string;
+    downloadFormatted?: string;
+    uploadFormatted?: string;
 }
 
 interface DataTransferInfo {
@@ -155,9 +155,9 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
                         const datasetIndex = context.datasetIndex;
 
                         if (datasetIndex === 0) {
-                            return `Downloaded: ${dataToUse[dataIndex].downloadFormatted}`;
+                            return `Downloaded: ${dataToUse[dataIndex].downloadFormatted || formatDataSize(dataToUse[dataIndex].download)}`;
                         } else {
-                            return `Uploaded: ${dataToUse[dataIndex].uploadFormatted}`;
+                            return `Uploaded: ${dataToUse[dataIndex].uploadFormatted || formatDataSize(dataToUse[dataIndex].upload)}`;
                         }
                     }
                 }
