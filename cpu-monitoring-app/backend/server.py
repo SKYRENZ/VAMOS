@@ -386,26 +386,46 @@ async def get_processes():
 @app.get("/cpu-temperature", summary="Get Overall CPU Temperature")
 async def get_cpu_temperature():
     """
-    Get the overall CPU temperature by averaging all CPU core temps from OpenHardwareMonitor.
+    Get the overall CPU temperature using multiple fallback methods.
+    Priority:
+    1. OpenHardwareMonitor (average of all CPU Core temps)
+    2. WMI (MSAcpi_ThermalZoneTemperature)
     """
     try:
-        w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
+        # Try OpenHardwareMonitor first
+        try:
+            w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
 
-        # Collect all core temps
-        core_temps = [
-            sensor.Value
-            for sensor in w.Sensor()
-            if sensor.SensorType == "Temperature" and "CPU Core" in sensor.Name
-        ]
+            core_temps = [
+                sensor.Value
+                for sensor in w.Sensor()
+                if sensor.SensorType == "Temperature" and "CPU Core" in sensor.Name
+            ]
 
-        if core_temps:
-            avg_temp = round(sum(core_temps) / len(core_temps), 1)
-            return {"cpu_temperature": avg_temp}
+            if core_temps:
+                avg_temp = round(sum(core_temps) / len(core_temps), 1)
+                return {"cpu_temperature": avg_temp}
+            else:
+                print("No CPU Core temperatures found in OpenHardwareMonitor.")
+        except Exception as e:
+            print(f"OpenHardwareMonitor failed: {str(e)}")
 
-        return {"error": "No CPU core temperatures found"}, 404
+        # Fallback: WMI (MSAcpi_ThermalZoneTemperature)
+        try:
+            w = wmi.WMI(namespace=r"root\\wmi")
+            temps = [t.CurrentTemperature / 10 - 273.15 for t in w.MSAcpi_ThermalZoneTemperature()]
+            if temps:
+                return {"cpu_temperature": round(temps[0], 1)}
+            else:
+                print("No thermal zone temperatures found.")
+        except Exception as e:
+            print(f"WMI fallback failed: {e}")
+
+        return {"error": "All temperature methods failed"}, 500
 
     except Exception as e:
-        return {"error": f"Failed to retrieve CPU temperature: {str(e)}"}, 500
+        return {"error": f"CPU temperature check failed: {str(e)}"}, 500
+
 
 
 @app.get("/gpu-temperature",
