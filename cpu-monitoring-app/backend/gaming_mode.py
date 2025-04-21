@@ -18,14 +18,25 @@ class GamingModeResponse(BaseModel):
 
 def set_high_performance_mode():
     try:
-        # Check if Ultimate Performance is available
-        subprocess.run(["powercfg", "/setactive", "04c7538d-bb72-4f7e-b2a9-9fff3de47edb"], check=True)
-        return "Power plan set to Ultimate Performance."
+        # Try to set Ultimate Performance
+        subprocess.run([
+            "powercfg", "/setactive", "04c7538d-bb72-4f7e-b2a9-9fff3de47edb"
+        ], check=True)
+        return "Ultimate Performance plan activated."
+    
     except subprocess.CalledProcessError:
-        # Fallback to High Performance if Ultimate Performance is unavailable
-        subprocess.run(["powercfg", "/setactive", "8c5e7f1a-c0c2-4d80-a522-2bb2e200700f"], check=True)
-        return "Power plan set to High Performance."
-
+        # If Ultimate Performance fails, enable Gaming Mode via registry
+        try:
+            subprocess.run([
+                "reg", "add", r"HKEY_CURRENT_USER\SOFTWARE\Microsoft\GameBar",
+                "/v", "AutoGameModeEnabled",
+                "/t", "REG_DWORD",
+                "/d", "1",
+                "/f"
+            ], check=True)
+            return "Ultimate Performance not available. Gaming Mode enabled instead."
+        except subprocess.CalledProcessError as e:
+            return f"Failed to set Gaming Mode: {e}"
 
 def disable_background_processes():
     # Kill processes that are not critical and consume resources
