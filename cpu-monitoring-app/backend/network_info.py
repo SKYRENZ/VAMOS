@@ -12,6 +12,7 @@ import urllib.request
 import random
 from collections import deque
 import math
+import socket
 
 # Global cache for network data
 network_cache = {
@@ -66,18 +67,37 @@ def get_mac_address():
         return "Not detected"
 
 def get_connection_type():
-    """Determine the connection type (WiFi or Ethernet)"""
     try:
-        interfaces = psutil.net_if_stats()
-        for interface, stats in interfaces.items():
-            if stats.isup:
-                if "wi" in interface.lower() or "wl" in interface.lower():
-                    return "Wi-Fi"
-                elif "eth" in interface.lower() or "en" in interface.lower():
-                    return "Ethernet"
-        return "Unknown"
-    except:
-        return "Unknown"
+        # Get network interface addresses
+        interfaces = psutil.net_if_addrs()
+        active_interfaces = []
+        
+        # Collect all interfaces that are "up" and have an IPv4 address
+        for name, addrs in interfaces.items():
+            for addr in addrs:
+                if addr.family == psutil.AF_INET:  # We are looking for IPv4 addresses
+                    # Check if the interface is up
+                    if psutil.net_if_stats().get(name, None) and psutil.net_if_stats()[name].isup:
+                        active_interfaces.append(name)
+                        print(f"Active Interface: {name} with IP: {addr.address}")
+        
+        # Debug output to see all active interfaces
+        print("Active Interfaces:", active_interfaces)
+
+        # Check active interfaces for Wi-Fi or Ethernet
+        for interface in active_interfaces:
+            lname = interface.lower()
+            if "wi-fi" in lname or "wifi" in lname:
+                return "Wi-Fi"
+            elif "ethernet" in lname:
+                return "Ethernet"
+            elif "hamachi" in lname:
+                return "VPN"
+
+        return "WIFI"  # If no active interface was found
+    except Exception as e:
+        print("Error:", e)
+        return "Wifi"
 
 def get_signal_strength():
     """Get WiFi signal strength or Ethernet connection quality"""
