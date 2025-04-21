@@ -7,9 +7,10 @@ import CircularGaugeSpeedTest from '../components/CircularGaugeSpeedTest'
 import BandwidthUsageGraph from '../components/BandwidthUsageGraph'
 import ConnectionQualityMonitor from '../components/ConnectionQualityMonitor'
 import IOMonitor from '../components/IOMonitor'
+import DataTransferGraph from '../components/DataTransferGraph'
+import TotalDataTransfer from '../components/TotalDataTransfer'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
-import SpeedTestNotification from '../components/SpeedTestNotification'
 
 // Add CSS for animations
 const animationStyles = `
@@ -86,29 +87,30 @@ interface BandwidthDataPoint {
   timestamp: string
   download: number
   upload: number
+  downloadFormatted?: string
+  uploadFormatted?: string
+}
+
+interface DataTransferPoint {
+  timestamp: string;
+  totalBytesSent: number;
+  totalBytesReceived: number;
+  totalBytesSentFormatted: string;
+  totalBytesReceivedFormatted: string;
 }
 
 interface NetworkProps {
   networkState: {
     speedTestCompleted: boolean;
     speedTestData: SpeedTestResult | null;
-    isRunningSpeedTest: boolean;
-    scanProgress: number;
-    currentPhase: string;
-    error: string | null;
   };
   setNetworkState: React.Dispatch<React.SetStateAction<{
     speedTestCompleted: boolean;
     speedTestData: SpeedTestResult | null;
-    isRunningSpeedTest: boolean;
-    scanProgress: number;
-    currentPhase: string;
-    error: string | null;
   }>>;
-  onRunSpeedTest: () => Promise<void>;
 }
 
-export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: NetworkProps) => {
+export const Network = ({ networkState, setNetworkState }: NetworkProps) => {
   const [networkData, setNetworkData] = useState<NetworkData | null>({
     connectionType: "Unknown",
     signalStrength: 0,
@@ -133,13 +135,112 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
   })
   const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isRunningSpeedTest, setIsRunningSpeedTest] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [bandwidthHistory, setBandwidthHistory] = useState<BandwidthDataPoint[]>([])
   const [latencyHistory, setLatencyHistory] = useState<number[]>([])
   const [timeRange, setTimeRange] = useState<'5min' | '1hour' | '1day'>('5min')
-  const [isScanning, setIsScanning] = useState(false);
+  const [dataTransferHistory, setDataTransferHistory] = useState<DataTransferPoint[]>([])
+  const [totalDataTransfer, setTotalDataTransfer] = useState({
+    totalSent: 0,
+    totalReceived: 0,
+    sentFormatted: "0 B",
+    receivedFormatted: "0 B"
+  })
   const contentRef = useRef<HTMLDivElement>(null);
-  const [error, setError] = useState<string | null>(null)
+  const [showExportDropdown, setShowExportDropdown] = useState<boolean>(false);
+  const exportButtonRef = useRef<HTMLDivElement>(null);
+
+  // Handle clicking outside the dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportButtonRef.current && !exportButtonRef.current.contains(event.target as Node)) {
+        setShowExportDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Export functions
+  const exportAsPDF = async () => {
+    if (contentRef.current) {
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        logging: false,
+        backgroundColor: '#000000'
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = canvas.height * imgWidth / canvas.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`network-monitor-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    }
+    setShowExportDropdown(false);
+  };
+
+  const exportAsJPG = async () => {
+    if (contentRef.current) {
+      const canvas = await html2canvas(contentRef.current, {
+        scale: 2,
+        logging: false,
+        backgroundColor: '#000000'
+      });
+
+      const link = document.createElement('a');
+      link.download = `network-monitor-report-${new Date().toISOString().split('T')[0]}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 0.8);
+      link.click();
+    }
+    setShowExportDropdown(false);
+  };
+
+  const exportAsJSON = () => {
+    // Create a simplified version of bandwidthHistory with only the fields we have
+    const simplifiedBandwidthHistory = bandwidthHistory.map(item => ({
+      timestamp: item.timestamp,
+      download: item.download,
+      upload: item.upload
+    }));
+
+    const jsonData = {
+      networkData,
+      ioData,
+      bandwidthHistory: simplifiedBandwidthHistory,
+      latencyHistory,
+      speedTestData: networkState.speedTestData,
+      totalDataTransfer,
+      lastUpdated: lastUpdated?.toISOString(),
+      exportDate: new Date().toISOString()
+    };
+
+    const dataStr = JSON.stringify(jsonData, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
+    const exportFileName = `network-monitor-data-${new Date().toISOString().split('T')[0]}.json`;
+
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileName);
+    linkElement.click();
+    setShowExportDropdown(false);
+  };
+
+  const toggleExportDropdown = () => {
+    setShowExportDropdown(!showExportDropdown);
+  };
 
   // Fetch all network data
   const fetchData = async () => {
@@ -153,6 +254,18 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
       setConnectedDevices(data.connectedDevices)
       setBandwidthHistory(data.bandwidthHistory || [])
       setLatencyHistory(data.latencyHistory || [])
+      setDataTransferHistory(data.dataTransferHistory || [])
+      setTotalDataTransfer(data.totalDataTransfer ? {
+        totalSent: data.totalDataTransfer.sent,
+        totalReceived: data.totalDataTransfer.received,
+        sentFormatted: data.totalDataTransfer.sentFormatted,
+        receivedFormatted: data.totalDataTransfer.receivedFormatted
+      } : {
+        totalSent: 0,
+        totalReceived: 0,
+        sentFormatted: "0 B",
+        receivedFormatted: "0 B"
+      })
       setLastUpdated(new Date(data.lastUpdated))
       setError(null)
     } catch (err) {
@@ -174,13 +287,50 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
     }
   }
 
-  // Run speed test - use the function from the app component
-  const handleRunSpeedTest = () => {
-    setIsScanning(true);
-    // Call the app-level function
-    onRunSpeedTest().finally(() => {
-      setIsScanning(false);
-    });
+  // Fetch data transfer history
+  const fetchDataTransferHistory = async () => {
+    try {
+      const response = await fetch(`${API_URL}/data-transfer-history?timeframe=${timeRange}`)
+      const data = await response.json()
+      setDataTransferHistory(data)
+    } catch (err) {
+      console.error('Error fetching data transfer history:', err)
+    }
+  }
+
+  // Run speed test
+  const handleRunSpeedTest = async () => {
+    try {
+      setIsRunningSpeedTest(true)
+      setNetworkState(prev => ({ ...prev, speedTestData: null }))
+
+      // Simulate a minimal delay for the test UI feedback
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      const response = await fetch(`${API_URL}/speedtest`)
+      const data = await response.json()
+
+      // Check if the response contains an error
+      if (data.error) {
+        setError(data.error)
+        setNetworkState(prev => ({ ...prev, speedTestData: null }))
+      } else {
+        setNetworkState(prev => ({ ...prev, speedTestData: data }))
+        // Refresh all network data after speed test completes
+        await fetchData()
+        // Set the speed test as completed to show remaining content
+        setNetworkState(prev => ({ ...prev, speedTestCompleted: true }))
+
+        // Refresh data again after a short delay to ensure I/O Monitor is updated
+        setTimeout(fetchData, 1000)
+        setTimeout(fetchData, 3000)
+      }
+    } catch (err) {
+      console.error('Error running speed test:', err)
+      setError('Failed to run speed test.')
+    } finally {
+      setIsRunningSpeedTest(false)
+    }
   }
 
   // Handle time range change for bandwidth graph
@@ -205,9 +355,10 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
     }
   }, [])
 
-  // Fetch bandwidth history when time range changes
+  // Fetch bandwidth and data transfer history when time range changes
   useEffect(() => {
     fetchBandwidthHistory()
+    fetchDataTransferHistory()
   }, [timeRange])
 
   const getSignalQuality = (signal: number) => {
@@ -293,152 +444,67 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                 fontWeight: 'bold',
                 margin: 0,
                 fontSize: '1.5rem',
-                letterSpacing: '0.05em'
+                letterSpacing: '0.05em',
               }}>NETWORK MONITOR</h1>
 
-              <div className="dropdown">
+              <div className="position-relative" style={{ zIndex: 1000 }} ref={exportButtonRef}>
                 <button
-                  className="btn dropdown-toggle"
-                  type="button"
-                  data-bs-toggle="dropdown"
-                  data-bs-auto-close="true"
-                  aria-expanded="false"
+                  className="btn btn-sm"
                   style={{
                     backgroundColor: 'transparent',
-                    border: '1px solid #00FF00',
                     color: '#00FF00',
-                    padding: '0.5rem 1rem',
-                    minWidth: '140px',
-                    transition: 'all 0.3s ease',
+                    border: '1px solid #00FF00',
+                    borderRadius: '4px',
+                    padding: '6px 12px',
+                    fontWeight: 'bold'
                   }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                    e.currentTarget.style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
+                  onClick={toggleExportDropdown}
                 >
                   <i className="fas fa-download me-2"></i>
                   Export Data
                 </button>
-                <ul className="dropdown-menu dropdown-menu-end" style={{
-                  backgroundColor: '#1a1a1a',
-                  border: '1px solid #333',
-                  minWidth: '200px'
-                }}>
-                  <li>
+
+                {showExportDropdown && (
+                  <div className="position-absolute end-0 mt-1" style={{
+                    backgroundColor: '#121212',
+                    border: '1px solid #333333',
+                    borderRadius: '4px',
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                    width: '150px',
+                    overflow: 'hidden'
+                  }}>
                     <button
-                      className="dropdown-item d-flex align-items-center"
-                      onClick={async () => {
-                        if (contentRef.current) {
-                          const canvas = await html2canvas(contentRef.current);
-                          const link = document.createElement('a');
-                          link.download = `network-monitor-${new Date().toISOString().split('T')[0]}.jpg`;
-                          link.href = canvas.toDataURL('image/jpeg');
-                          link.click();
-                        }
-                      }}
-                      style={{
-                        color: '#CCCCCC',
-                        padding: '0.5rem 1rem',
-                        transition: 'all 0.3s ease',
-                        cursor: 'pointer'
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.transform = 'scale(1.02)';
-                        e.currentTarget.style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
-                        e.currentTarget.style.color = '#00FF00';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.transform = 'scale(1)';
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = '#CCCCCC';
-                      }}
+                      className="btn btn-sm w-100 text-start"
+                      style={{ color: '#FFFFFF', padding: '8px 12px', transition: 'all 0.2s ease' }}
+                      onClick={exportAsPDF}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      <i className="fas fa-image me-2"></i>
-                      Export as JPG
+                      <i className="far fa-file-pdf me-2" style={{ color: '#ff4444' }}></i>
+                      PDF
                     </button>
-                  </li>
-                  <li><hr className="dropdown-divider" style={{ borderColor: '#333' }} /></li>
-                  <li>
                     <button
-                      className="dropdown-item d-flex align-items-center"
-                      onClick={async () => {
-                        if (contentRef.current) {
-                          const canvas = await html2canvas(contentRef.current);
-                          const pdf = new jsPDF('p', 'mm', 'a4');
-                          const imgData = canvas.toDataURL('image/jpeg');
-                          const width = pdf.internal.pageSize.getWidth();
-                          const height = (canvas.height * width) / canvas.width;
-                          pdf.addImage(imgData, 'JPEG', 0, 0, width, height);
-                          pdf.save(`network-monitor-${new Date().toISOString().split('T')[0]}.pdf`);
-                        }
-                      }}
-                      style={{
-                        color: '#CCCCCC',
-                        padding: '0.5rem 1rem',
-                        transition: 'all 0.3s ease',
-                        cursor: 'pointer'
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.transform = 'scale(1.02)';
-                        e.currentTarget.style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
-                        e.currentTarget.style.color = '#00FF00';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.transform = 'scale(1)';
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = '#CCCCCC';
-                      }}
+                      className="btn btn-sm w-100 text-start"
+                      style={{ color: '#FFFFFF', padding: '8px 12px', transition: 'all 0.2s ease' }}
+                      onClick={exportAsJPG}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      <i className="fas fa-file-pdf me-2"></i>
-                      Export as PDF
+                      <i className="far fa-file-image me-2" style={{ color: '#44aaff' }}></i>
+                      JPG
                     </button>
-                  </li>
-                  <li><hr className="dropdown-divider" style={{ borderColor: '#333' }} /></li>
-                  <li>
                     <button
-                      className="dropdown-item d-flex align-items-center"
-                      onClick={() => {
-                        const data = {
-                          networkData,
-                          speedTest: networkState.speedTestData,
-                          ioData,
-                          bandwidthHistory,
-                          lastUpdated: lastUpdated?.toISOString()
-                        };
-                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                        const url = URL.createObjectURL(blob);
-                        const link = document.createElement('a');
-                        link.href = url;
-                        link.download = `network-monitor-${new Date().toISOString().split('T')[0]}.json`;
-                        link.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                      style={{
-                        color: '#CCCCCC',
-                        padding: '0.5rem 1rem',
-                        transition: 'all 0.3s ease',
-                        cursor: 'pointer'
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.transform = 'scale(1.02)';
-                        e.currentTarget.style.backgroundColor = 'rgba(0, 255, 0, 0.1)';
-                        e.currentTarget.style.color = '#00FF00';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.transform = 'scale(1)';
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = '#CCCCCC';
-                      }}
+                      className="btn btn-sm w-100 text-start"
+                      style={{ color: '#FFFFFF', padding: '8px 12px', transition: 'all 0.2s ease' }}
+                      onClick={exportAsJSON}
+                      onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
+                      onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                     >
-                      <i className="fas fa-file-code me-2"></i>
-                      Export as JSON
+                      <i className="far fa-file-code me-2" style={{ color: '#ffaa44' }}></i>
+                      JSON
                     </button>
-                  </li>
-                </ul>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -460,37 +526,25 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                       <i className="fas fa-tachometer-alt me-2"></i>
                       Speed Test
                       {!networkState.speedTestCompleted && (
-                        <div style={{ color: '#CCCCCC', fontSize: '0.9rem', marginTop: '10px' }}>
-                          <p style={{ fontSize: '0.8rem', marginTop: '5px' }}>
-                            <i className="fas fa-info-circle me-1"></i>
-                            Run a speed test to see your network performance data
-
-                          </p>
-                        </div>
+                        <small style={{ color: '#CCCCCC', fontSize: '0.8rem', marginLeft: '10px' }}>
+                          Run a speed test to see all network data
+                        </small>
                       )}
                     </h5>
 
                     <CircularGaugeSpeedTest
-                      isRunning={networkState.isRunningSpeedTest}
+                      isRunning={isRunningSpeedTest}
                       downloadSpeed={networkState.speedTestData?.download || null}
                       uploadSpeed={networkState.speedTestData?.upload || null}
                       ping={networkState.speedTestData?.ping || null}
                       onStartTest={handleRunSpeedTest}
                     />
 
-                    {isScanning && (
-                      <div className="progress-container mt-3" style={{ maxWidth: '400px', margin: '0 auto' }}>
-                        <div className="text-center" style={{ color: '#CCCCCC' }}>
-                          {networkState.currentPhase} {Math.round(networkState.scanProgress)}%
-                        </div>
-                      </div>
-                    )}
-
-                    {networkState.isRunningSpeedTest && (
+                    {isRunningSpeedTest && (
                       <div className="test-server-info mt-3 text-center">
                         <p style={{ color: '#CCCCCC', fontSize: '0.9rem' }}>
                           <i className="fas fa-spinner fa-spin me-2"></i>
-                          Running enhanced accuracy test (may take 30-45 seconds)...
+                          Running enhanced accuracy test (may take 20-30 seconds)...
                         </p>
                       </div>
                     )}
@@ -532,7 +586,7 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
 
               {networkState.speedTestCompleted && (
                 <>
-                  <div className="col-lg-6 px-3 fade-in delay-1">
+                  <div className="col-lg-6 px-3 fade-in delay-1"> {/* Added fade-in animation */}
                     <div className="card border-0 shadow-lg h-100" style={{ backgroundColor: '#121212' }}>
                       <div className="card-body">
                         <h5 className="card-title mb-3" style={{ color: '#00FF00' }}>
@@ -551,7 +605,7 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                     </div>
                   </div>
 
-                  <div className="col-lg-6 px-3 fade-in delay-2">
+                  <div className="col-lg-6 px-3 fade-in delay-2"> {/* Added fade-in animation */}
                     <div className="card border-0 shadow-lg h-100" style={{ backgroundColor: '#121212' }}>
                       <div className="card-body">
                         <h5 className="card-title mb-3" style={{ color: '#00FF00' }}>
@@ -649,11 +703,17 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                     </div>
                   </div>
 
-                  <div className="col-12 px-3 fade-in delay-3">
+                  <div className="col-12 px-3 fade-in delay-3"> {/* Added fade-in animation */}
                     <div className="card border-0 shadow-lg" style={{ backgroundColor: '#121212' }}>
                       {ioData && (
                         <IOMonitor
+                          uploadSpeed={ioData.uploadSpeed}
+                          downloadSpeed={ioData.downloadSpeed}
+                          uploadPackets={ioData.uploadPackets}
+                          downloadPackets={ioData.downloadPackets}
                           activeInterfaces={ioData.activeInterfaces}
+                          bytesSent={ioData.bytesSent}
+                          bytesReceived={ioData.bytesReceived}
                         />
                       )}
                     </div>
@@ -665,7 +725,7 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                         <div className="d-flex justify-content-between align-items-center mb-3">
                           <h5 className="card-title mb-0" style={{ color: '#00FF00' }}>
                             <i className="fas fa-chart-area me-2"></i>
-                            Bandwidth Usage
+                            Network Usage
                           </h5>
                           <div className="time-range-buttons">
                             <button
@@ -704,14 +764,18 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
                           </div>
                         </div>
                         {bandwidthHistory.length > 0 ? (
-                          <BandwidthUsageGraph bandwidthHistory={bandwidthHistory} timeRange={timeRange} />
+                          <BandwidthUsageGraph
+                            bandwidthHistory={bandwidthHistory}
+                            timeRange={timeRange}
+                            totalDataTransfer={totalDataTransfer}
+                          />
                         ) : (
                           <div className="text-center py-5" style={{ color: '#CCCCCC' }}>
                             <i className="fas fa-chart-area mb-3" style={{ fontSize: '2rem' }}></i>
                             <p>
                               {networkState.speedTestCompleted ?
-                                "No bandwidth data available yet. Data will appear as your connection is monitored." :
-                                "Run a speed test to start collecting bandwidth history data."}
+                                "No network data available yet. Data will appear as your connection is monitored." :
+                                "Run a speed test to start collecting network data."}
                             </p>
                           </div>
                         )}
@@ -733,9 +797,6 @@ export const Network = ({ networkState, setNetworkState, onRunSpeedTest }: Netwo
           {lastUpdated && `(${Math.round((Date.now() - lastUpdated.getTime()) / 1000)}s ago)`}
         </span>
       </div>
-
-      {/* Speed Test Notification */}
-      <SpeedTestNotification networkState={networkState} />
     </div>
   )
 }
