@@ -43,6 +43,13 @@ from network_info import (
 )
 from pydantic import BaseModel
 import json
+from hardware_info import (
+    get_cpu_usage,
+    get_cpu_temperature,
+    get_gpu_usage,
+    get_gpu_temperature,
+    get_gpu_stats,
+)
 
 app = FastAPI()
 print(app.routes)
@@ -291,69 +298,32 @@ async def get_network_io():
 
 # System Monitoring Endpoints
 @app.get("/cpu-usage")
-async def get_cpu_usage():
-    """Fetch CPU usage and additional CPU details"""
-    try:
-        # Get per-core usage for better accuracy
-        per_cpu = psutil.cpu_percent(interval=1, percpu=True)
-        # Calculate weighted average (like Task Manager does)
-        avg_usage = sum(per_cpu) / len(per_cpu)
-        # Adjust for Windows Task Manager's calculation method
-        adjusted_usage = min(100, avg_usage * 1.05)  # 5% adjustment factor
+async def cpu_usage():
+    """Fetch CPU usage and additional CPU details."""
+    return get_cpu_usage()
 
-        # Fetch additional CPU details
-        cpu_freq = psutil.cpu_freq()
-        base_speed = round(cpu_freq.max, 2) if cpu_freq else None  # Base speed in GHz
-        cores = psutil.cpu_count(logical=False)  # Physical cores
-        logical_processors = psutil.cpu_count(logical=True)  # Logical processors
-        sockets = 1  # psutil does not provide socket info; assuming 1 for most systems
-
-        return {
-            "cpu_usage": round(adjusted_usage, 1),
-            "base_speed_ghz": base_speed,
-            "sockets": sockets,
-            "cores": cores,
-            "logical_processors": logical_processors,
-        }
-    except Exception as e:
-        return {"error": f"An error occurred: {str(e)}"}
-
-def get_gpu_usage() -> Optional[float]:
-    """
-    Get GPU usage percentage (0-100) using the most reliable available method
-    Returns None if no GPU usage data can be obtained
-    """
-    # Method 1: NVIDIA SMI (most reliable for NVIDIA GPUs)
-    try:
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        return float(result.stdout.strip())
-    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
-        pass
-
-    # Method 2: WMI fallback (works for some AMD/Intel GPUs)
-    try:
-        import wmi
-        c = wmi.WMI(namespace="root\\cimv2")
-        for gpu in c.Win32_VideoController():
-            if hasattr(gpu, "LoadPercentage"):
-                return float(gpu.LoadPercentage)
-    except:
-        pass
-
-    return None
+@app.get("/cpu-temperature")
+async def cpu_temperature():
+    """Get CPU temperature."""
+    return get_cpu_temperature()
 
 @app.get("/gpu-usage")
 async def gpu_usage():
-    """Get current GPU usage percentage"""
+    """Get current GPU usage percentage."""
     usage = get_gpu_usage()
     if usage is not None:
         return {"gpu_usage_percent": usage}
     return {"error": "GPU usage data not available"}
+
+@app.get("/gpu-temperature")
+async def gpu_temperature():
+    """Get GPU temperature."""
+    return get_gpu_temperature()
+
+@app.get("/gpu-stats")
+async def gpu_stats():
+    """Fetch GPU and VRAM clock speeds, and GPU core count."""
+    return get_gpu_stats()
 
 @app.get("/disk-usage")
 async def get_disk_usage():
@@ -381,149 +351,9 @@ async def get_processes():
 
     return JSONResponse(content={"processes": processes})
 
-
-
-@app.get("/cpu-temperature", summary="Get Overall CPU Temperature")
-async def get_cpu_temperature():
-    """
-    Get the overall CPU temperature by averaging all CPU core temps from OpenHardwareMonitor.
-    """
-    try:
-        w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
-
-        # Collect all core temps
-        core_temps = [
-            sensor.Value
-            for sensor in w.Sensor()
-            if sensor.SensorType == "Temperature" and "CPU Core" in sensor.Name
-        ]
-
-        if core_temps:
-            avg_temp = round(sum(core_temps) / len(core_temps), 1)
-            return {"cpu_temperature": avg_temp}
-
-        return {"error": "No CPU core temperatures found"}, 404
-
-    except Exception as e:
-        return {"error": f"Failed to retrieve CPU temperature: {str(e)}"}, 500
-
-
-@app.get("/gpu-temperature",
-         summary="Get GPU Temperature",
-         response_description="GPU temperature in Celsius or error message",
-         tags=["Hardware Monitoring"])
-async def get_gpu_temperature():
-    """Get GPU temperature from system hardware (including CPU and GPU)"""
-    try:
-        # Use cmd.exe to run WMIC directly (avoid PowerShell escaping issues)
-        try:
-            result = subprocess.run(
-                ["cmd", "/c", "wmic", "/namespace:\\\\root\\wmi", "path", "MSAcpi_ThermalZoneTemperature", "get", "CurrentTemperature"],
-                capture_output=True, text=True, timeout=5
-            )
-            print("Raw command output:", result.stdout)
-
-            if result.returncode == 0:
-                output_lines = result.stdout.strip().split('\n')
-                print("Parsed lines:", output_lines)
-
-                # Look for the numeric temperature value
-                for line in output_lines:
-                    line = line.strip()
-                    if line.isdigit():
-                        temp_kelvin = int(line) / 10.0  # Convert to Kelvin
-                        temp_celsius = temp_kelvin - 273.15  # Convert to Celsius
-                        return {"gpu_temperature": round(temp_celsius, 2)}
-                
-                return {"error": "No valid temperature data found"}, 500
-            else:
-                error_msg = f"Command failed: {result.stderr}"
-                print(error_msg)
-                return {"error": error_msg}, 500
-        except Exception as e:
-            print(f"WMIC command failed: {e}")
-            return {"error": f"WMIC command failed: {str(e)}"}, 500
-
-    except Exception as e:
-        return {"error": f"Temperature check failed: {str(e)}"}, 500
-    
-def get_gpu_stats():
-    """Get GPU and VRAM clock speeds"""
-    try:
-        # Initialize NVML for NVIDIA GPUs
-        try:
-            nvmlInit()
-            handle = nvmlDeviceGetHandleByIndex(0)
-            
-            gpu_clock = nvmlDeviceGetClockInfo(handle, 0)  # 0 = Graphics clock
-            mem_clock = nvmlDeviceGetClockInfo(handle, 1)  # 1 = Memory clock
-            
-            return {
-                "gpu_clock_speed": gpu_clock,
-                "vram_clock_speed": mem_clock
-            }
-        except Exception as e:
-            print(f"NVML failed: {e}")
-
-        # Fallback for AMD GPUs
-        try:
-            result = subprocess.run(
-                ["rocm-smi", "--showclocks"],
-                capture_output=True, text=True, timeout=5
-            )
-            if result.returncode == 0:
-                # Parse output for clock speeds
-                gpu_clock = None
-                mem_clock = None
-                
-                for line in result.stdout.split('\n'):
-                    if "GPU Clock Level" in line:
-                        match = re.search(r"(\d+)\s*MHz", line)
-                        if match:
-                            gpu_clock = int(match.group(1))
-                    elif "Memory Clock Level" in line:
-                        match = re.search(r"(\d+)\s*MHz", line)
-                        if match:
-                            mem_clock = int(match.group(1))
-                
-                if gpu_clock and mem_clock:
-                    return {
-                        "gpu_clock_speed": gpu_clock,
-                        "vram_clock_speed": mem_clock
-                    }
-        except Exception as e:
-            print(f"ROCm-SMI failed: {e}")
-
-        # Final fallback - return simulated data
-        return {
-            "gpu_clock_speed": random.randint(1200, 1800),
-            "vram_clock_speed": random.randint(1400, 1600)
-        }
-
-    except Exception as e:
-        print(f"GPU stats failed: {e}")
-        return {
-            "gpu_clock_speed": 0,
-            "vram_clock_speed": 0
-        }
-    
-@app.get("/gpu-stats",
-         summary="Get GPU Clock Speeds",
-         response_description="GPU and VRAM clock speeds in MHz",
-         tags=["Hardware Monitoring"])
-async def get_gpu_stats_endpoint():
-    """Fetch GPU and VRAM clock speeds in MHz"""
-    return get_gpu_stats()   
-
-
-
-
-
-
 @app.get("/battery")
 def battery_status():
     return JSONResponse(content=batteryinfo.get_battery_info())
-
 
 # Map of power plans with human-readable names (case-sensitive)
 power_plans = {
