@@ -10,6 +10,7 @@ import useMemoryData from "../hooks/useMemoryData" // Import the custom hook for
 import SystemSpecs from "../components/SystemSpecs";
 import useCPUStats from "../hooks/useCPUStats";
 import SpeedTestNotification from '../components/SpeedTestNotification';
+import ProcessModal from "../components/ProcessModal"
 
 
 const RADIAN = Math.PI / 180
@@ -226,6 +227,7 @@ interface HomeProps {
 }
 
 const Home = ({ networkState }: HomeProps) => {
+  const [showModal, setShowModal] = useState(false);
   const [cpuUsage, setCpuUsage] = useState(50);
   const [gpuUsage, setGpuUsage] = useState(30);
   const { memory, error: memoryError } = useMemoryData();
@@ -285,6 +287,19 @@ const Home = ({ networkState }: HomeProps) => {
           </div>
         </div>
       </div>
+
+          {/* Task Processes Button */}
+          <div className="task-processes-container text-center mt-4">
+      <button
+        className="btn btn-success"
+        onClick={() => setShowModal(true)}
+      >
+        View Task Processes
+      </button>
+    </div>
+
+    {/* Process Modal */}
+    <ProcessModal showModal={showModal} setShowModal={setShowModal} />
 
       <div className="container-fluid py-4">
         <h2 className="section-title mb-4">Monitor</h2>
