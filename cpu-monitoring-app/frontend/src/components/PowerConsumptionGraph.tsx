@@ -74,7 +74,7 @@ const PowerConsumptionGraph: React.FC = () => {
 
     return (
         <div style={{
-            width: '90%',
+            width: '100%',
             margin: '0 auto',
             height: '400px',
             padding: '20px',

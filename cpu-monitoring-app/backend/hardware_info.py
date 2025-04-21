@@ -35,40 +35,56 @@ def get_cpu_usage():
         return {"error": f"An error occurred: {str(e)}"}
 
 def get_cpu_temperature():
-    """Get CPU temperature with multiple fallback methods."""
+    """
+    Get the overall CPU temperature using multiple fallback methods.
+    Priority:
+    1. OpenHardwareMonitor (average of all CPU Core temps)
+    2. WMI (MSAcpi_ThermalZoneTemperature)
+    3. psutil (if available)
+    """
     try:
-        # Method 1: WMI (Windows Management Instrumentation)
+        # Method 1: OpenHardwareMonitor
+        try:
+            w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
+            core_temps = [
+                sensor.Value
+                for sensor in w.Sensor()
+                if sensor.SensorType == "Temperature" and "CPU Core" in sensor.Name
+            ]
+            if core_temps:
+                avg_temp = round(sum(core_temps) / len(core_temps), 1)
+                return {"cpu_temperature": avg_temp}
+            else:
+                print("No CPU Core temperatures found in OpenHardwareMonitor.")
+        except Exception as e:
+            print(f"OpenHardwareMonitor failed: {str(e)}")
+
+        # Method 2: WMI - ACPI thermal zone
         try:
             w = wmi.WMI(namespace=r"root\wmi")
             temps = [t.CurrentTemperature / 10 - 273.15 for t in w.MSAcpi_ThermalZoneTemperature()]
             if temps:
                 return {"cpu_temperature": round(temps[0], 1)}
+            else:
+                print("No thermal zone temperatures found.")
         except Exception as e:
-            print(f"WMI Method 1 failed: {e}")
+            print(f"WMI fallback failed: {e}")
 
-        # Method 2: OpenHardwareMonitor WMI
-        try:
-            w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
-            cpu_temp = next(
-                (s.Value for s in w.Sensor() if s.SensorType == "Temperature" and "CPU" in s.Name), None
-            )
-            if cpu_temp:
-                return {"cpu_temperature": cpu_temp}
-        except Exception as e:
-            print(f"OpenHardwareMonitor failed: {str(e)}")
-
-        # Method 3: psutil (cross-platform but limited)
+        # Method 3: psutil (Linux-friendly fallback)
         try:
             if hasattr(psutil, "sensors_temperatures"):
                 temps = psutil.sensors_temperatures()
-                if "coretemp" in temps:
-                    return {"cpu_temperature": temps["coretemp"][0].current}
+                for name, entries in temps.items():
+                    for entry in entries:
+                        if entry.current:
+                            return {"cpu_temperature": round(entry.current, 1)}
         except Exception as e:
-            print(f"psutil method failed: {e}")
+            print(f"psutil fallback failed: {e}")
 
-        return {"error": "All temperature methods failed"}
+        return {"error": "All temperature methods failed"}, 500
+
     except Exception as e:
-        return {"error": f"CPU temperature check failed: {str(e)}"}
+        return {"error": f"CPU temperature check failed: {str(e)}"}, 500
 
 # GPU Functions
 def get_gpu_usage() -> Optional[float]:
@@ -98,9 +114,9 @@ def get_gpu_usage() -> Optional[float]:
 
 
 def get_gpu_temperature() -> dict:
-    """Get GPU temperature for NVIDIA or AMD GPUs."""
+    """Get GPU temperature from system hardware (including NVIDIA, AMD, and other GPUs)."""
     try:
-        # NVIDIA GPU temperature
+        # Method 1: Using nvidia-smi for NVIDIA GPUs
         try:
             result = subprocess.run(
                 ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
@@ -115,7 +131,32 @@ def get_gpu_temperature() -> dict:
         except Exception as e:
             print(f"NVIDIA-SMI failed: {e}")
 
-        # AMD GPU temperature (via WMI)
+        # Method 2: Using WMIC command to get GPU temperature (Windows only)
+        try:
+            result = subprocess.run(
+                ["cmd", "/c", "wmic", "/namespace:\\\\root\\wmi", "path", "MSAcpi_ThermalZoneTemperature", "get", "CurrentTemperature"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                output_lines = result.stdout.strip().split('\n')
+
+                # Look for the numeric temperature value
+                for line in output_lines:
+                    line = line.strip()
+                    if line.isdigit():
+                        temp_kelvin = int(line) / 10.0  # Convert to Kelvin
+                        temp_celsius = temp_kelvin - 273.15  # Convert to Celsius
+                        return {"gpu_temperature": round(temp_celsius, 2)}
+                
+                return {"error": "No valid temperature data found"}, 500
+            else:
+                error_msg = f"Command failed: {result.stderr}"
+                return {"error": error_msg}, 500
+        except Exception as e:
+            print(f"WMIC command failed: {e}")
+            return {"error": f"WMIC command failed: {str(e)}"}, 500
+
+        # Method 3: Using OpenHardwareMonitor WMI (for non-NVIDIA/AMD GPUs)
         try:
             w = wmi.WMI(namespace=r"root\OpenHardwareMonitor")
             gpu_temp = next(
@@ -124,11 +165,12 @@ def get_gpu_temperature() -> dict:
             if gpu_temp:
                 return {"gpu_temperature": gpu_temp}
         except Exception as e:
-            print(f"AMD GPU temperature retrieval failed: {e}")
+            print(f"OpenHardwareMonitor GPU retrieval failed: {e}")
 
-        return {"error": "No GPU temperature data available"}
+        return {"error": "No GPU temperature data available"}, 500
+
     except Exception as e:
-        return {"error": f"GPU temperature check failed: {str(e)}"}
+        return {"error": f"Temperature check failed: {str(e)}"}, 500
 
 def get_gpu_stats():
     """Get GPU and VRAM clock speeds."""
