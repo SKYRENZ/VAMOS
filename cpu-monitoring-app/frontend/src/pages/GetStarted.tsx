@@ -17,48 +17,57 @@ const GetStartedButton: React.FC = () => {
   const [showBorderGlow, setShowBorderGlow] = useState(false)
   const [initialLogoFading, setInitialLogoFading] = useState(false)
 
+  // Adjust the timing in handleGetStarted to be more balanced
   const handleGetStarted = () => {
     setIsAnimating(true)
     setInitialLogoFading(true) // Start fading the initial logo
     setShowBorderGlow(true) // Show the border glow effect
 
+    // Delay the travel effect to match the original timing
     setTimeout(() => {
       setShowTravelEffect(true)
 
+      // Adjust travel effect completion timing (800ms)
       setTimeout(() => {
         setTravelComplete(true) // Mark travel effect as complete
 
+        // Show logo after travel effect completes
         setTimeout(() => {
           setShowLogo(true) // Show logo after travel effect completes
 
+          // Show particles after logo appears
           setTimeout(() => {
             setShowParticles(true) // Show particles after logo appears
 
+            // Show pulse wave after a moderate delay (800ms)
             setTimeout(() => {
               setShowPulseWave(true) // Show pulse wave in the middle of the animation
 
+              // Show final flash after a moderate delay (800ms)
               setTimeout(() => {
                 setShowFinalFlash(true) // Show final flash effect before navigation
 
+                // Navigate after 800ms
                 setTimeout(() => {
                   window.location.href = "/home"
-                }, 1000)
-              }, 1500)
-            }, 1500)
-          }, 500)
-        }, 300)
-      }, 1200)
-    }, 500) // Added delay to allow initial logo to fade
+                }, 800)
+              }, 800)
+            }, 800)
+          }, 300)
+        }, 200)
+      }, 800)
+    }, 500) // Keep original delay to allow initial logo to fade
   }
 
+  // Adjust the renderParticles function to use more moderate timing
   const renderParticles = () => {
     const particles = []
     const particleCount = 30
 
     for (let i = 0; i < particleCount; i++) {
-      const delay = Math.random() * 2
+      const delay = Math.random() * 1.5 // Moderate delay (between original 2 and previous 1)
       const size = Math.random() * 15 + 8
-      const duration = Math.random() * 2 + 2
+      const duration = Math.random() * 1.5 + 1.5 // Moderate duration (between original 2+2 and previous 1+1)
       const x = Math.random() * 300 - 150
       const y = Math.random() * 300 - 150
 
@@ -84,14 +93,13 @@ const GetStartedButton: React.FC = () => {
     return particles
   }
 
-  // Create pulse waves dynamically
+  // Adjust the renderPulseWaves function to use more moderate timing
   const renderPulseWaves = () => {
     const waves = []
     const waveCount = 3
 
     for (let i = 0; i < waveCount; i++) {
-      const delay = i * 0.5 // Stagger the waves
-
+      const delay = i * 0.3 // Moderate delay (between original 0.5 and previous 0.2)
       waves.push(
         <div
           key={i}
@@ -106,13 +114,13 @@ const GetStartedButton: React.FC = () => {
     return waves
   }
 
-  // Create travel effect elements
+  // Adjust the renderTravelEffect function to use more moderate timing
   const renderTravelEffect = () => {
     const elements = []
     const count = 6 // Number of traveling elements
 
     for (let i = 0; i < count; i++) {
-      const delay = i * 0.1 // Stagger the elements
+      const delay = i * 0.08 // Moderate delay (between original 0.1 and previous 0.05)
       const angle = (360 / count) * i // Distribute around a circle
       const radians = angle * (Math.PI / 180)
       const x = Math.cos(radians)
@@ -209,4 +217,3 @@ const GetStartedButton: React.FC = () => {
 }
 
 export default GetStartedButton
-
