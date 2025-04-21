@@ -25,31 +25,22 @@ ChartJS.register(
     Filler
 );
 
-interface BandwidthDataPoint {
+interface DataTransferPoint {
     timestamp: string;
-    download: number;
-    upload: number;
-    downloadFormatted: string;
-    uploadFormatted: string;
+    totalBytesSent: number;
+    totalBytesReceived: number;
+    totalBytesSentFormatted: string;
+    totalBytesReceivedFormatted: string;
 }
 
-interface DataTransferInfo {
-    totalSent: number;
-    totalReceived: number;
-    sentFormatted: string;
-    receivedFormatted: string;
-}
-
-interface BandwidthUsageGraphProps {
-    bandwidthHistory: BandwidthDataPoint[];
+interface DataTransferGraphProps {
+    dataTransferHistory: DataTransferPoint[];
     timeRange: '5min' | '1hour' | '1day';
-    totalDataTransfer?: DataTransferInfo;
 }
 
-const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
-    bandwidthHistory,
-    timeRange,
-    totalDataTransfer
+const DataTransferGraph: React.FC<DataTransferGraphProps> = ({
+    dataTransferHistory,
+    timeRange
 }) => {
     // Format the timestamps based on selected time range
     const formatLabel = (timestamp: string) => {
@@ -73,22 +64,25 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
     };
 
     // Generate sample data if history is empty (for development/testing)
-    const ensureData = (history: BandwidthDataPoint[]) => {
+    const ensureData = (history: DataTransferPoint[]) => {
         if (history.length === 0) {
             // Create sample data for development/testing
             const now = new Date();
             const sampleData = [];
+            let cumulativeSent = 0;
+            let cumulativeReceived = 0;
+
             for (let i = 0; i < 10; i++) {
-                const downloadBytes = Math.floor(Math.random() * 1024 * 1024 * 2); // 0-2 MB
-                const uploadBytes = Math.floor(Math.random() * 1024 * 1024); // 0-1 MB
+                cumulativeSent += Math.random() * 1024 * 1024 * 5; // 0-5 MB increments
+                cumulativeReceived += Math.random() * 1024 * 1024 * 10; // 0-10 MB increments
 
                 const time = new Date(now.getTime() - (9 - i) * 30000); // 30 seconds intervals
                 sampleData.push({
                     timestamp: time.toISOString(),
-                    download: downloadBytes,
-                    upload: uploadBytes,
-                    downloadFormatted: formatDataSize(downloadBytes),
-                    uploadFormatted: formatDataSize(uploadBytes)
+                    totalBytesSent: cumulativeSent,
+                    totalBytesReceived: cumulativeReceived,
+                    totalBytesSentFormatted: formatDataSize(cumulativeSent),
+                    totalBytesReceivedFormatted: formatDataSize(cumulativeReceived)
                 });
             }
             return sampleData;
@@ -97,14 +91,14 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
     };
 
     // Use the actual data or sample data if empty
-    const dataToUse = bandwidthHistory.length > 0 ? bandwidthHistory : ensureData([]);
+    const dataToUse = dataTransferHistory.length > 0 ? dataTransferHistory : ensureData([]);
 
-    const bandwidthChartData = {
+    const data = {
         labels: dataToUse.map(item => formatLabel(item.timestamp)),
         datasets: [
             {
                 label: 'Downloaded',
-                data: dataToUse.map(item => item.download),
+                data: dataToUse.map(item => item.totalBytesReceived),
                 borderColor: '#00FF00',
                 backgroundColor: 'rgba(0, 255, 0, 0.1)',
                 tension: 0.3,
@@ -114,7 +108,7 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
             },
             {
                 label: 'Uploaded',
-                data: dataToUse.map(item => item.upload),
+                data: dataToUse.map(item => item.totalBytesSent),
                 borderColor: '#33CCFF',
                 backgroundColor: 'rgba(51, 204, 255, 0.1)',
                 tension: 0.3,
@@ -125,7 +119,7 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
         ],
     };
 
-    const bandwidthOptions: ChartOptions<'line'> = {
+    const options: ChartOptions<'line'> = {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
@@ -137,9 +131,6 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
                         size: 12
                     }
                 }
-            },
-            title: {
-                display: false,
             },
             tooltip: {
                 mode: 'index',
@@ -155,9 +146,9 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
                         const datasetIndex = context.datasetIndex;
 
                         if (datasetIndex === 0) {
-                            return `Downloaded: ${dataToUse[dataIndex].downloadFormatted}`;
+                            return `Downloaded: ${dataToUse[dataIndex].totalBytesReceivedFormatted}`;
                         } else {
-                            return `Uploaded: ${dataToUse[dataIndex].uploadFormatted}`;
+                            return `Uploaded: ${dataToUse[dataIndex].totalBytesSentFormatted}`;
                         }
                     }
                 }
@@ -188,8 +179,6 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
                     text: 'Data Volume',
                     color: '#CCCCCC',
                 },
-                min: 0,
-                grace: '5%'
             },
         },
         interaction: {
@@ -204,30 +193,9 @@ const BandwidthUsageGraph: React.FC<BandwidthUsageGraphProps> = ({
 
     return (
         <div style={{ height: '300px', position: 'relative' }}>
-            <div className="mb-4 text-center">
-                <p style={{ color: '#CCCCCC', fontSize: '0.9rem' }}>
-                    <i className="fas fa-info-circle me-2"></i>
-                    Data transferred every 30 seconds
-                </p>
-            </div>
-            <Line data={bandwidthChartData} options={bandwidthOptions} />
-
-            {totalDataTransfer && (
-                <div className="mt-3">
-                    <div className="d-flex justify-content-between">
-                        <div style={{ color: '#CCCCCC' }}>
-                            <i className="fas fa-cloud-download-alt me-2" style={{ color: '#00FF00' }}></i>
-                            Total Downloaded: <span style={{ color: '#FFFFFF', fontWeight: 'bold' }}>{totalDataTransfer.receivedFormatted}</span>
-                        </div>
-                        <div style={{ color: '#CCCCCC' }}>
-                            <i className="fas fa-cloud-upload-alt me-2" style={{ color: '#33CCFF' }}></i>
-                            Total Uploaded: <span style={{ color: '#FFFFFF', fontWeight: 'bold' }}>{totalDataTransfer.sentFormatted}</span>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <Line data={data} options={options} />
         </div>
     );
 };
 
-export default BandwidthUsageGraph; 
+export default DataTransferGraph; 

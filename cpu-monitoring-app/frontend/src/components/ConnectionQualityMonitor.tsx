@@ -15,40 +15,37 @@ const ConnectionQualityMonitor: React.FC<ConnectionQualityProps> = ({
     stability,
     latencyHistory
 }) => {
-    // Helper function to determine color based on ping
+    // Helper functions for color determination
     const getPingColor = (ping: number) => {
-        if (ping === 0) return "#808080";
-        if (ping < 30) return "#00FF00";
-        if (ping < 60) return "#66FF66";
-        if (ping < 100) return "#FFCC00";
-        return "#FF3333";
+        if (ping < 20) return '#00FF00';  // Excellent
+        if (ping < 50) return '#66FF66';  // Very Good
+        if (ping < 100) return '#FFCC00'; // Good
+        if (ping < 150) return '#FF9900'; // Fair
+        return '#FF3333';                 // Poor
     };
 
-    // Helper function to determine color based on jitter
     const getJitterColor = (jitter: number) => {
-        if (jitter === 0) return "#808080";
-        if (jitter < 5) return "#00FF00";
-        if (jitter < 15) return "#66FF66";
-        if (jitter < 30) return "#FFCC00";
-        return "#FF3333";
+        if (jitter < 5) return '#00FF00';   // Excellent
+        if (jitter < 10) return '#66FF66';  // Very Good
+        if (jitter < 20) return '#FFCC00';  // Good
+        if (jitter < 30) return '#FF9900';  // Fair
+        return '#FF3333';                   // Poor
     };
 
-    // Helper function to determine color based on stability
     const getStabilityColor = (stability: number) => {
-        if (stability === 0) return "#808080";
-        if (stability > 90) return "#00FF00";
-        if (stability > 75) return "#66FF66";
-        if (stability > 50) return "#FFCC00";
-        return "#FF3333";
+        if (stability >= 90) return '#00FF00';  // Excellent
+        if (stability >= 75) return '#66FF66';  // Very Good
+        if (stability >= 60) return '#FFCC00';  // Good
+        if (stability >= 40) return '#FF9900';  // Fair
+        return '#FF3333';                       // Poor
     };
 
-    // Helper function to determine quality rating text
     const getQualityRating = (stability: number) => {
-        if (stability === 0) return "Not tested";
-        if (stability > 90) return "Excellent";
-        if (stability > 75) return "Good";
-        if (stability > 50) return "Fair";
-        return "Poor";
+        if (stability >= 90) return 'Excellent';
+        if (stability >= 75) return 'Very Good';
+        if (stability >= 60) return 'Good';
+        if (stability >= 40) return 'Fair';
+        return 'Poor';
     };
 
     return (
@@ -152,29 +149,7 @@ const ConnectionQualityMonitor: React.FC<ConnectionQualityProps> = ({
                 </div>
             </div>
 
-            {latencyHistory.length > 0 && (
-                <div className="row mt-4">
-                    <div className="col-12">
-                        <div style={{ backgroundColor: '#0A0A0A', padding: '10px', borderRadius: '8px' }}>
-                            <small style={{ color: '#CCCCCC' }}>Latency History (ms)</small>
-                            <div className="d-flex justify-content-between mt-2" style={{ height: '40px' }}>
-                                {latencyHistory.map((latency, index) => (
-                                    <div
-                                        key={index}
-                                        style={{
-                                            width: `${100 / latencyHistory.length - 2}%`,
-                                            height: `${Math.min(100, (latency / 150) * 100)}%`,
-                                            backgroundColor: getPingColor(latency),
-                                            marginRight: '2px'
-                                        }}
-                                        title={`${latency} ms`}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Removed latency history section */}
         </div>
     );
 };

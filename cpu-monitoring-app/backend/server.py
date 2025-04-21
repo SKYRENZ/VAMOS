@@ -32,9 +32,12 @@ from network_info import (
     get_connected_devices,
     get_bandwidth_history,
     get_connection_quality,
+    get_data_transfer_history,
     get_all_network_data,
     update_network_data,
-    clear_history
+    clear_history,
+    get_network_io as get_network_io_data,
+    format_bytes
 )
 from pydantic import BaseModel
 
@@ -136,6 +139,11 @@ async def fetch_bandwidth_history(timeframe: str = "5min"):
     """API endpoint to get bandwidth history"""
     return JSONResponse(content=get_bandwidth_history(timeframe))
 
+@app.get("/api/data-transfer-history")
+async def fetch_data_transfer_history(timeframe: str = "5min"):
+    """API endpoint to get data transfer history"""
+    return JSONResponse(content=get_data_transfer_history(timeframe))
+
 @app.get("/api/connection-quality")
 async def fetch_connection_quality():
     """API endpoint to get connection quality data"""
@@ -151,6 +159,23 @@ async def clear_history():
     """API endpoint to clear all history data"""
     clear_history()
     return JSONResponse(content={"status": "success", "message": "History cleared"})
+
+@app.get("/api/network-io")
+async def get_network_io():
+    """Get Network I/O data"""
+    io_data = get_network_io_data()
+    
+    # Calculate total bytes directly from bandwidth history for consistency
+    total_bytes_received = sum(item["download"] for item in get_bandwidth_history("1day"))
+    total_bytes_sent = sum(item["upload"] for item in get_bandwidth_history("1day"))
+    
+    # Replace the single-interval values with cumulative totals
+    io_data["bytesSent"] = total_bytes_sent
+    io_data["bytesReceived"] = total_bytes_received
+    io_data["bytesSentFormatted"] = format_bytes(total_bytes_sent)
+    io_data["bytesReceivedFormatted"] = format_bytes(total_bytes_received)
+    
+    return io_data
 
 # System Monitoring Endpoints
 @app.get("/cpu-usage")
