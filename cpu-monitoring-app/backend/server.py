@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi import FastAPI, HTTPException
 from typing import Optional, List, Dict
+from process_info import get_processes_data
 import psutil
 import time
 import platform
@@ -337,19 +338,10 @@ async def get_disk_usage():
 
 @app.get("/processes")
 async def get_processes():
-    processes = []
-    for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_info']):
-        try:
-            processes.append({
-                "pid": proc.info['pid'],
-                "name": proc.info['name'],
-                "cpu_percent": proc.info['cpu_percent'],
-                "memory_usage": proc.info['memory_info'].rss  # Resident Set Size (RAM)
-            })
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            continue
+    """API endpoint to fetch process information."""
+    processes_data = get_processes_data()
+    return JSONResponse(content=processes_data)
 
-    return JSONResponse(content={"processes": processes})
 
 @app.get("/battery")
 def battery_status():

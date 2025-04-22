@@ -12,6 +12,7 @@ import VamosHeader from "../components/VamosHeader"
 import CombinedGaugeChart from "../components/CombinedGaugeChart"
 import useCPUStats from "../hooks/useCPUStats"
 import useGPUStats from "../hooks/useGPUStats"
+import ProcessModal from "../components/ProcessModal" // Import the ProcessModal component
 
 interface TemperatureBarProps {
   isGamingMode: boolean
@@ -146,6 +147,7 @@ const Home = ({ networkState }: HomeProps) => {
   const { memory, error: memoryError } = useMemoryData()
   const [isGamingModeActive, setIsGamingModeActive] = useState(false)
   const [isGamingMode, setIsGamingMode] = useState(false)
+  const [showProcessModal, setShowProcessModal] = useState(false) // State for ProcessModal
 
   // Check gaming mode status
   useEffect(() => {
@@ -176,6 +178,12 @@ const Home = ({ networkState }: HomeProps) => {
         <h1>Monitor</h1>
         <div className="gaming-mode-container">
           <GamingMode className={isGamingModeActive ? "gaming-mode-glow" : ""} />
+          <button
+            className="btn btn-success ms-3"
+            onClick={() => setShowProcessModal(true)}
+          >
+            View Processes
+          </button>
         </div>
       </div>
 
@@ -280,6 +288,12 @@ const Home = ({ networkState }: HomeProps) => {
           <SpeedTestNotification networkState={networkState} />
         </div>
       )}
+
+      {/* ProcessModal */}
+      <ProcessModal
+        showModal={showProcessModal}
+        setShowModal={setShowProcessModal}
+      />
     </div>
   )
 }
