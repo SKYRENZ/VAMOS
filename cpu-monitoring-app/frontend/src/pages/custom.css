@@ -158,7 +158,15 @@ body {
   font-size: 16px;
   fill: #ff0000;
 }
+.modal-content {
+  border: 2px solid #28a745; /* Green border color */
+  box-shadow: 0 0 15px #28a745; /* Glowing green effect */
+  transition: box-shadow 0.3s ease-in-out;
+}
 
+.modal-content:hover {
+  box-shadow: 0 0 25px #28a745; /* Intensify glow on hover */
+}
 /* Bottom row - Info cards */
 .bottom-row {
   display: grid;
