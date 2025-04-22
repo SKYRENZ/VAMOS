@@ -6,7 +6,7 @@ import Network from './pages/Network';
 import BottomNav from './components/BottomNav';
 import GetStarted from './pages/GetStarted';
 import SpeedTestNotification from './components/SpeedTestNotification';
-import { TemperatureProvider } from "./context/TemperatureContext";
+
 
 
 interface SpeedTestResult {
@@ -270,11 +270,9 @@ const AppContent = () => {
 
 const App = () => {
     return (
-        <TemperatureProvider>
           <Router>
             <AppContent />
           </Router>
-        </TemperatureProvider>
       );
 };
 
